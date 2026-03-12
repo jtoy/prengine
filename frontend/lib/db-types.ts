@@ -15,6 +15,8 @@ export interface Job {
   created_by: number | null
   created_by_email: string | null
   pr_url: string | null
+  pr_urls: { repo: string; url: string }[] | null
+  selected_repos: string[] | null
   diff_summary: string | null
   failure_reason: string | null
   attachments: Attachment[]
@@ -31,6 +33,7 @@ export interface JobRun {
   branch_name: string | null
   commit_sha: string | null
   pr_url: string | null
+  pr_urls: { repo: string; url: string }[] | null
   preview_url: string | null
   logs: string | null
   test_output: string | null

@@ -1,6 +1,8 @@
 require_relative "db"
 require_relative "redis_client"
 require_relative "git_manager"
+require_relative "multi_repo_git_manager"
+require_relative "repo_router"
 require_relative "agent_runner"
 require_relative "test_runner"
 require_relative "ngrok_manager"
@@ -31,17 +33,15 @@ class JobProcessor
       "#{job['title']}\n\n#{job['summary']}"
     end
 
-    # Determine repo URL — use job's repo_url or let agent decide from configured repos
-    repo_url = job["repo_url"]
-    if repo_url.nil? || repo_url.empty?
-      repo_url = Config::REPOS.first
-      repo_url = "https://github.com/#{repo_url}" unless repo_url&.start_with?("http")
-    end
+    # Determine repos — multi-repo selection
+    repo_names = select_repos(job)
 
-    unless repo_url
+    if repo_names.empty?
       fail_job(job_id, nil, "No repository configured")
       return
     end
+
+    puts "[JobProcessor] Selected repos: #{repo_names.join(', ')}"
 
     # Create or find the run
     run_number = if type == "followup"
@@ -63,7 +63,7 @@ class JobProcessor
     run_id = run["id"].to_i
 
     begin
-      execute_pipeline(job_id, run_id, run["run_number"].to_i, repo_url, prompt)
+      execute_pipeline(job_id, run_id, run["run_number"].to_i, repo_names, prompt)
     rescue => e
       puts "[JobProcessor] Error: #{e.message}\n#{e.backtrace.first(5).join("\n")}"
       fail_job(job_id, run_id, e.message)
@@ -72,26 +72,56 @@ class JobProcessor
 
   private
 
-  def execute_pipeline(job_id, run_id, run_number, repo_url, prompt)
+  def select_repos(job)
+    # 1. If job has selected_repos, use those
+    selected = parse_json_field(job["selected_repos"])
+    if selected.is_a?(Array) && !selected.empty?
+      puts "[JobProcessor] Using user-selected repos"
+      return selected
+    end
+
+    # 2. If job has repo_url, extract owner/name
+    repo_url = job["repo_url"]
+    if repo_url && !repo_url.to_s.empty?
+      match = repo_url.match(%r{github\.com[:/](.+?)/(.+?)(?:\.git)?$})
+      if match
+        return ["#{match[1]}/#{match[2]}"]
+      end
+      # If it's already owner/name format
+      return [repo_url] if repo_url.include?("/") && !repo_url.include?("://")
+    end
+
+    # 3. LLM-based routing from configured repos
+    if Config::REPOS.any?
+      RepoRouter.route(job["title"], job["summary"], Config::REPOS)
+    else
+      []
+    end
+  end
+
+  def parse_json_field(value)
+    return nil if value.nil?
+    return value if value.is_a?(Array)
+    JSON.parse(value) rescue nil
+  end
+
+  def execute_pipeline(job_id, run_id, run_number, repo_names, prompt)
     started_at = Time.now.utc
-    git = GitManager.new(repo_url, job_id, run_number)
+    git = MultiRepoGitManager.new(repo_names, job_id, run_number)
+    repo_dirs = repo_names.map { |r| r.split("/").last }
 
-    # Step 1: Clone
-    log_step(job_id, 1, "Cloning #{repo_url}")
+    # Step 1: Setup multi-repo workspace (clone from cache + branch)
+    log_step(job_id, 1, "Setting up workspace for #{repo_names.join(', ')}")
     update_status(job_id, run_id, run_number, "processing", "cloning")
-    git.clone
-    log_step(job_id, 1, "Clone complete")
+    git.setup_workspace
+    log_step(job_id, 1, "Workspace ready: #{git.work_path}")
 
-    # Step 2: Create branch
-    git.create_branch
-    log_step(job_id, 2, "Branch created: #{git.branch_name}")
-
-    # Step 3: Run coding agent
-    log_step(job_id, 3, "Running agent...")
+    # Step 2: Run coding agent from workspace root
+    log_step(job_id, 2, "Running agent...")
     update_status(job_id, run_id, run_number, "processing", "running_agent")
-    agent = AgentRunner.new(git.work_path)
+    agent = AgentRunner.new(git.work_path, repo_dirs: repo_dirs)
     result = agent.run(prompt)
-    log_step(job_id, 3, "Agent finished — success=#{result[:success]}, output=#{result[:output].to_s.length} chars")
+    log_step(job_id, 2, "Agent finished — success=#{result[:success]}, output=#{result[:output].to_s.length} chars")
 
     output_str = result[:output].to_s
     DB.update_run(run_id, { "logs" => output_str.length > 50_000 ? output_str[-50_000..] : output_str })
@@ -102,24 +132,28 @@ class JobProcessor
       return
     end
 
-    # Step 4: Generate commit message and commit
-    log_step(job_id, 4, "Generating commit message...")
+    # Step 3: Detect changes, generate commit message, commit per repo
+    log_step(job_id, 3, "Generating commit message...")
     diff_text = git.diff_for_llm
     commit_msg = generate_commit_message(diff_text, prompt)
-    log_step(job_id, 4, "Committing: #{commit_msg}")
+    log_step(job_id, 3, "Committing: #{commit_msg}")
 
-    sha = git.commit(commit_msg)
-    unless sha
+    commits = git.commit_all(commit_msg)
+    if commits.empty?
       fail_job(job_id, run_id, "No changes were made by the agent")
       return
     end
-    DB.update_run(run_id, { "commit_sha" => sha, "branch_name" => git.branch_name })
-    log_step(job_id, 4, "Committed: #{sha}")
 
-    # Step 5: Run tests (non-fatal — log results but continue pipeline)
-    log_step(job_id, 5, "Running tests...")
+    first_sha = commits.values.first
+    DB.update_run(run_id, { "commit_sha" => first_sha, "branch_name" => git.branch_name })
+    log_step(job_id, 3, "Committed #{commits.size} repo(s): #{commits.map { |n, s| "#{n}=#{s[0..7]}" }.join(', ')}")
+
+    # Step 4: Run tests (in first changed repo, non-fatal)
+    log_step(job_id, 4, "Running tests...")
     update_status(job_id, run_id, run_number, "testing", "running_tests")
-    test_runner = TestRunner.new(git.work_path)
+    first_changed = commits.keys.first
+    test_path = File.join(git.work_path, first_changed)
+    test_runner = TestRunner.new(test_path)
     test_result = test_runner.run
 
     test_status = if test_result[:skipped]
@@ -133,39 +167,45 @@ class JobProcessor
     end
 
     DB.update_run(run_id, { "test_output" => test_result[:output], "test_status" => test_status })
-    log_step(job_id, 5, "Tests finished — status=#{test_status}")
+    log_step(job_id, 4, "Tests finished — status=#{test_status}")
     if !test_result[:success] && !test_result[:skipped]
-      log_step(job_id, 5, "Test output:\n#{test_result[:output]}")
+      log_step(job_id, 4, "Test output:\n#{test_result[:output]}")
     end
 
-    # Step 6: Push
-    log_step(job_id, 6, "Pushing branch...")
+    # Step 5: Push all changed repos
+    log_step(job_id, 5, "Pushing #{commits.size} repo(s)...")
     update_status(job_id, run_id, run_number, "testing", "pushing")
-    git.push
-    log_step(job_id, 6, "Pushed")
+    git.push_all
+    log_step(job_id, 5, "Pushed")
 
-    # Step 7: Create PR with LLM-generated description
-    log_step(job_id, 7, "Creating PR...")
+    # Step 6: Create PRs per changed repo
+    log_step(job_id, 6, "Creating PRs...")
     update_status(job_id, run_id, run_number, "testing", "creating_pr")
 
     diff = git.diff_summary
     pr_title = commit_msg.length > 72 ? commit_msg[0..71] : commit_msg
     pr_body = generate_pr_body(diff_text, prompt, test_status, job_id)
-    log_step(job_id, 7, "PR title: #{pr_title}")
+    log_step(job_id, 6, "PR title: #{pr_title}")
 
-    pr_url = git.create_pr(title: pr_title, body: pr_body)
+    pr_results = git.create_prs(title: pr_title, body: pr_body)
+    first_pr_url = pr_results.first&.dig(:url)
+    pr_urls_json = pr_results.map { |r| { "repo" => r[:repo], "url" => r[:url] } }
 
     duration_s = (Time.now.utc - started_at).round(1)
     DB.update_run(run_id, {
-      "pr_url" => pr_url, "diff_summary" => diff,
+      "pr_url" => first_pr_url, "pr_urls" => JSON.generate(pr_urls_json),
+      "diff_summary" => diff,
       "status" => "completed", "finished_at" => Time.now.utc.iso8601,
       "duration_seconds" => duration_s,
     })
-    DB.update_job(job_id, { "status" => "pr_submitted", "pr_url" => pr_url, "diff_summary" => diff })
+    DB.update_job(job_id, {
+      "status" => "pr_submitted", "pr_url" => first_pr_url,
+      "pr_urls" => JSON.generate(pr_urls_json), "diff_summary" => diff,
+    })
 
-    publish_update(job_id, run_id, run_number, "pr_submitted", "completed", pr_url: pr_url)
+    publish_update(job_id, run_id, run_number, "pr_submitted", "completed", pr_url: first_pr_url)
 
-    log_step(job_id, 7, "Done! PR: #{pr_url} (#{duration_s}s)")
+    log_step(job_id, 6, "Done! #{pr_results.size} PR(s): #{pr_results.map { |r| r[:url] }.join(', ')} (#{duration_s}s)")
 
     git.cleanup
   end

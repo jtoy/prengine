@@ -19,12 +19,19 @@ export async function createJob(data: {
   title: string
   summary: string
   attachments: { url: string; filename: string; mime_type: string }[]
+  selected_repos?: string[]
 }): Promise<Job> {
   const response = await authenticatedFetch(`${API_BASE}/jobs`, {
     method: 'POST',
     body: JSON.stringify(data),
   })
   if (!response.ok) throw new Error('Failed to create job')
+  return response.json()
+}
+
+export async function fetchRepos(): Promise<string[]> {
+  const response = await fetch(`${API_BASE}/repos`)
+  if (!response.ok) throw new Error('Failed to fetch repos')
   return response.json()
 }
 

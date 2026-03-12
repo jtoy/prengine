@@ -6,8 +6,11 @@ require_relative "config"
 class AgentRunner
   AGENT_CMD = ENV.fetch("AGENT_CMD", "pi")
 
-  def initialize(work_path)
+  # work_path: directory to run agent from
+  # repo_dirs: optional array of repo short names (for multi-repo prompt)
+  def initialize(work_path, repo_dirs: nil)
     @work_path = work_path
+    @repo_dirs = repo_dirs
   end
 
   # Run the coding agent with the given prompt (non-interactive)
@@ -46,12 +49,27 @@ class AgentRunner
   private
 
   def build_prompt(user_prompt)
+    workspace_hint = if @repo_dirs && @repo_dirs.length > 1
+      <<~HINT
+        The workspace contains these repositories as subdirectories: #{@repo_dirs.join(', ')}.
+        Navigate into the appropriate repo(s) to make changes. You may need to modify files
+        in multiple repos if the fix spans across them.
+      HINT
+    elsif @repo_dirs && @repo_dirs.length == 1
+      <<~HINT
+        The workspace contains the repository: #{@repo_dirs.first}.
+        Navigate into that directory to make changes.
+      HINT
+    else
+      ""
+    end
+
     <<~PROMPT
       You are fixing a bug in a codebase. Here is the bug report:
 
       #{user_prompt}
 
-      Fix the bug by modifying the necessary files. Make minimal, focused changes.
+      #{workspace_hint}Fix the bug by modifying the necessary files. Make minimal, focused changes.
       Run any existing tests to verify your fix works.
     PROMPT
   end

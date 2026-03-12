@@ -96,7 +96,17 @@ export function JobDetail({ jobId }: { jobId: number }) {
 
       {/* Quick links */}
       <div className="flex flex-wrap gap-2">
-        {job.pr_url && (
+        {job.pr_urls && job.pr_urls.length > 0 ? (
+          job.pr_urls.map((pr, i) => (
+            <a key={i} href={pr.url} target="_blank" rel="noopener noreferrer">
+              <Button variant="outline" size="sm" className="gap-1">
+                <GitPullRequest className="w-4 h-4" />
+                PR: {pr.repo.split("/").pop()}
+                <ExternalLink className="w-3 h-3" />
+              </Button>
+            </a>
+          ))
+        ) : job.pr_url ? (
           <a href={job.pr_url} target="_blank" rel="noopener noreferrer">
             <Button variant="outline" size="sm" className="gap-1">
               <GitPullRequest className="w-4 h-4" />
@@ -104,7 +114,7 @@ export function JobDetail({ jobId }: { jobId: number }) {
               <ExternalLink className="w-3 h-3" />
             </Button>
           </a>
-        )}
+        ) : null}
         {latestRun?.preview_url && (
           <a href={latestRun.preview_url} target="_blank" rel="noopener noreferrer">
             <Button variant="outline" size="sm" className="gap-1">
@@ -211,11 +221,17 @@ export function JobDetail({ jobId }: { jobId: number }) {
                       <Clock className="w-3 h-3" />
                       {new Date(run.created_at).toLocaleString()}
                     </span>
-                    {run.pr_url && (
+                    {run.pr_urls && run.pr_urls.length > 0 ? (
+                      run.pr_urls.map((pr, i) => (
+                        <a key={i} href={pr.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline flex items-center gap-1">
+                          <GitPullRequest className="w-3 h-3" /> PR: {pr.repo.split("/").pop()}
+                        </a>
+                      ))
+                    ) : run.pr_url ? (
                       <a href={run.pr_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline flex items-center gap-1">
                         <GitPullRequest className="w-3 h-3" /> PR
                       </a>
-                    )}
+                    ) : null}
                     {run.preview_url && (
                       <a href={run.preview_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline flex items-center gap-1">
                         <Globe className="w-3 h-3" /> Preview
