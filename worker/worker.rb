@@ -19,7 +19,7 @@ puts ""
 
 loop do
   begin
-    message = RedisClient.pop_job(timeout: 5)
+    message = RedisQueue.pop_job(timeout: 5)
     next unless message
 
     job_id = message[:job_id]

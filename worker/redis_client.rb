@@ -2,7 +2,7 @@ require "redis"
 require "json"
 require_relative "config"
 
-module RedisClient
+module RedisQueue
   @mutex = Mutex.new
 
   # Dedicated connection for BRPOP (main thread only)

@@ -155,7 +155,7 @@ class JobProcessor
   end
 
   def publish_update(job_id, run_id, run_number, job_status, run_status, pr_url: nil, preview_url: nil)
-    RedisClient.publish_status(job_id, {
+    RedisQueue.publish_status(job_id, {
       job_id: job_id,
       job_status: job_status,
       run_id: run_id,
