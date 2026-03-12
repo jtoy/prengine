@@ -1,61 +1,55 @@
-require "open3"
 require "json"
+require "net/http"
 
 class NgrokManager
   def initialize
-    @processes = {}
+    @pid = nil
   end
 
-  # Start an ngrok tunnel for a local port
-  # Returns the public URL or nil
-  def start(port, label: nil)
-    key = label || port.to_s
+  # Start an ngrok tunnel for a local port.
+  # Returns the public URL or nil.
+  def start(port)
+    stop # kill any existing tunnel first
 
-    stdout, stderr, status = Open3.capture3(
-      "ngrok", "http", port.to_s,
-      "--log", "stdout",
-      "--log-format", "json"
-    )
+    @pid = spawn("ngrok", "http", port.to_s, [:out, :err] => "/dev/null")
+    Process.detach(@pid)
 
-    # For background process, use spawn instead
-    pid = spawn(
-      "ngrok", "http", port.to_s,
-      [:out, :err] => "/dev/null"
-    )
-    Process.detach(pid)
-    @processes[key] = pid
+    # Poll the local API until the tunnel is up (max 10s)
+    url = nil
+    20.times do
+      sleep 0.5
+      url = fetch_tunnel_url
+      break if url
+    end
 
-    # Wait for tunnel to be ready and get URL
-    sleep 2
-    url = get_tunnel_url
+    if url
+      puts "[Ngrok] Tunnel open: #{url}"
+    else
+      puts "[Ngrok] Warning: tunnel started but could not retrieve URL"
+    end
+
     url
-  rescue => e
-    puts "Failed to start ngrok: #{e.message}"
-    nil
   end
 
-  def stop(label: nil, port: nil)
-    key = label || port&.to_s
-    pid = @processes.delete(key)
-    if pid
-      Process.kill("TERM", pid) rescue nil
-    end
+  def stop
+    return unless @pid
+    Process.kill("TERM", @pid) rescue nil
+    @pid = nil
+    sleep 0.5 # let it shut down
+    puts "[Ngrok] Tunnel stopped"
   end
 
-  def stop_all
-    @processes.each do |_key, pid|
-      Process.kill("TERM", pid) rescue nil
-    end
-    @processes.clear
+  def running?
+    !!fetch_tunnel_url
   end
 
   private
 
-  def get_tunnel_url
-    # Query ngrok API for tunnel info
-    response = `curl -s http://localhost:4040/api/tunnels 2>/dev/null`
+  def fetch_tunnel_url
+    uri = URI("http://localhost:4040/api/tunnels")
+    response = Net::HTTP.get(uri)
     data = JSON.parse(response)
-    tunnel = data["tunnels"]&.first
+    tunnel = data["tunnels"]&.find { |t| t["proto"] == "https" } || data["tunnels"]&.first
     tunnel&.dig("public_url")
   rescue
     nil

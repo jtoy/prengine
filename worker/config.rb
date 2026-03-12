@@ -8,6 +8,9 @@ module Config
   WORK_DIR         = ENV.fetch("WORK_DIR", "/tmp/bugfixvibe")
   NGROK_AUTHTOKEN  = ENV.fetch("NGROK_AUTHTOKEN", "")
   MAX_CONCURRENCY  = ENV.fetch("MAX_CONCURRENCY", "3").to_i
+  LLM_PROVIDER     = ENV.fetch("LLM_PROVIDER", "ollama")       # ollama | anthropic
+  LLM_MODEL        = ENV.fetch("LLM_MODEL", "gemma3")          # model name
+  OLLAMA_URL       = ENV.fetch("OLLAMA_URL", "http://localhost:11434")
   QUEUE_KEY        = "bugfixvibe:jobs"
   STATUS_CHANNEL   = "bugfixvibe:status"
 end

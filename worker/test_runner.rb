@@ -5,19 +5,32 @@ class TestRunner
     @work_path = work_path
   end
 
-  # Detect and run tests. Returns { success: bool, output: string }
+  # Detect and run tests.
+  # Returns { success: bool, output: string, skipped: bool, command_not_found: bool }
   def run
     test_cmd = detect_test_command
-    return { success: true, output: "No test command detected, skipping." } unless test_cmd
+    unless test_cmd
+      puts "[TestRunner] No test command detected, skipping."
+      return { success: true, output: "No test command detected, skipping.", skipped: true, command_not_found: false }
+    end
 
+    puts "[TestRunner] Running: #{test_cmd}"
     stdout, stderr, status = Open3.capture3(
       test_cmd,
       chdir: @work_path
     )
 
+    combined = (stdout + stderr)
+    output = combined.length > 10_000 ? combined[-10_000..] : combined
+    cmd_not_found = status.exitstatus == 127 || combined.match?(/command not found|not found|No such file/i)
+
+    puts "[TestRunner] Exit code: #{status.exitstatus}, output: #{combined.length} chars, command_not_found: #{cmd_not_found}"
+
     {
       success: status.success?,
-      output: (stdout + stderr).last(10_000), # Truncate to 10k chars
+      output: output,
+      skipped: false,
+      command_not_found: cmd_not_found,
     }
   end
 

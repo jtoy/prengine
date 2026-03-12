@@ -1,5 +1,8 @@
 #!/usr/bin/env ruby
 
+$stdout.sync = true
+$stderr.sync = true
+
 require_relative "config"
 require_relative "redis_client"
 require_relative "job_processor"
