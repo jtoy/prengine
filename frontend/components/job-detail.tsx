@@ -18,6 +18,7 @@ import {
   Paperclip,
   Globe,
   Terminal,
+  Sparkles,
 } from "lucide-react"
 
 export function JobDetail({ jobId }: { jobId: number }) {
@@ -161,6 +162,16 @@ export function JobDetail({ jobId }: { jobId: number }) {
             <div className="p-3 bg-red-50 border border-red-200 rounded-md">
               <p className="text-sm text-red-700 font-medium">Failure Reason</p>
               <p className="text-sm text-red-600 mt-1">{job.failure_reason}</p>
+            </div>
+          )}
+
+          {job.enriched_summary && (
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+              <p className="text-sm font-medium text-blue-700 flex items-center gap-1 mb-1">
+                <Sparkles className="w-3 h-3" />
+                Enriched Report
+              </p>
+              <p className="text-sm text-blue-900 whitespace-pre-wrap">{job.enriched_summary}</p>
             </div>
           )}
         </CardContent>

@@ -1,0 +1,2 @@
+ALTER TABLE jobs ADD COLUMN enrich BOOLEAN DEFAULT false;
+ALTER TABLE jobs ADD COLUMN enriched_summary TEXT;

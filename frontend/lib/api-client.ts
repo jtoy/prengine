@@ -20,6 +20,7 @@ export async function createJob(data: {
   summary: string
   attachments: { url: string; filename: string; mime_type: string }[]
   selected_repos?: string[]
+  enrich?: boolean
 }): Promise<Job> {
   const response = await authenticatedFetch(`${API_BASE}/jobs`, {
     method: 'POST',

@@ -25,17 +25,17 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { title, summary, attachments = [], selected_repos = [] } = body
+    const { title, summary, attachments = [], selected_repos = [], enrich = false } = body
 
     if (!title) {
       return NextResponse.json({ error: "Title is required" }, { status: 400 })
     }
 
     const result = await query(
-      `INSERT INTO jobs (title, summary, attachments, selected_repos, created_by, created_by_email, status)
-       VALUES ($1, $2, $3, $4, $5, $6, 'queued')
+      `INSERT INTO jobs (title, summary, attachments, selected_repos, enrich, created_by, created_by_email, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'queued')
        RETURNING *`,
-      [title, summary, JSON.stringify(attachments), JSON.stringify(selected_repos), user.id, user.email]
+      [title, summary, JSON.stringify(attachments), JSON.stringify(selected_repos), enrich, user.id, user.email]
     )
 
     const job = result.rows[0]

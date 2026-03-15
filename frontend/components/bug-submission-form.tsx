@@ -19,6 +19,7 @@ export function BugSubmissionForm() {
   const [attachments, setAttachments] = useState<Attachment[]>([])
   const [selectedRepos, setSelectedRepos] = useState<string[]>([])
   const [availableRepos, setAvailableRepos] = useState<string[]>([])
+  const [enrich, setEnrich] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState("")
   const router = useRouter()
@@ -54,6 +55,7 @@ export function BugSubmissionForm() {
           mime_type: a.mime_type,
         })),
         selected_repos: selectedRepos.length > 0 ? selectedRepos : undefined,
+        enrich: enrich || undefined,
       })
       router.push(`/jobs/${job.id}`)
     } catch (err) {
@@ -103,6 +105,21 @@ export function BugSubmissionForm() {
               className="min-h-32"
               required
             />
+          </div>
+
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={enrich}
+                onChange={(e) => setEnrich(e.target.checked)}
+                className="rounded border-gray-300"
+              />
+              <span className="text-sm font-medium">Enrich with AI</span>
+            </label>
+            <p className="text-xs text-muted-foreground ml-6">
+              Use AI to extract steps to reproduce, expected behavior, and affected components before processing
+            </p>
           </div>
 
           {availableRepos.length > 0 && (

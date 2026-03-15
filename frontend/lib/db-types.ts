@@ -21,6 +21,8 @@ export interface Job {
   failure_reason: string | null
   attachments: Attachment[]
   repo_url: string | null
+  enrich: boolean
+  enriched_summary: string | null
   created_at: string
   updated_at: string
 }

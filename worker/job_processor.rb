@@ -7,6 +7,7 @@ require_relative "agent_runner"
 require_relative "test_runner"
 require_relative "ngrok_manager"
 require_relative "llm_client"
+require_relative "report_enricher"
 require_relative "config"
 
 class JobProcessor
@@ -30,7 +31,21 @@ class JobProcessor
     prompt = if type == "followup"
       message[:prompt]
     else
-      "#{job['title']}\n\n#{job['summary']}"
+      raw = "#{job['title']}\n\n#{job['summary']}"
+      if job["enrich"] == "t" || job["enrich"] == true
+        log_step(job_id, 0, "Enriching report...")
+        enriched = ReportEnricher.enrich(job["title"], job["summary"])
+        if enriched
+          DB.update_job(job_id, { "enriched_summary" => enriched })
+          log_step(job_id, 0, "Enriched: #{enriched.length} chars")
+          enriched
+        else
+          log_step(job_id, 0, "Enrichment failed, using raw prompt")
+          raw
+        end
+      else
+        raw
+      end
     end
 
     # Determine repos — multi-repo selection
