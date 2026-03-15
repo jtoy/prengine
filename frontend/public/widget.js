@@ -172,6 +172,7 @@
       baseUrl + "/embed/submit?project=" + encodeURIComponent(project);
     var iframe = document.createElement("iframe");
     iframe.src = iframeSrc;
+    iframe.setAttribute("allow", "display-capture");
     Object.assign(iframe.style, {
       width: "100%",
       height: "80vh",
