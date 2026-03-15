@@ -27,8 +27,6 @@
 
   if (showMode === "never") return;
 
-  var DISMISS_KEY = "prengine_widget_dismissed";
-  if (sessionStorage.getItem(DISMISS_KEY)) return;
 
   // State
   var button = null;
@@ -103,7 +101,6 @@
     dismissBtn.textContent = "\u00d7";
     dismissBtn.addEventListener("click", function (e) {
       e.stopPropagation();
-      sessionStorage.setItem(DISMISS_KEY, "1");
       button.remove();
       button = null;
     });
