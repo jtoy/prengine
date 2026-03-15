@@ -5,7 +5,7 @@ import { GeistMono } from "geist/font/mono"
 import { AuthProvider } from "@/lib/auth-context"
 import { Suspense } from "react"
 import { Navigation } from "@/components/navigation"
-import "./globals.css"
+import "../globals.css"
 
 export const metadata: Metadata = {
   title: "BugFixVibe",
