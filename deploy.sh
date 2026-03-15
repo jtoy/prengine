@@ -2,16 +2,18 @@
 # Auto-deploy: pull latest code on studio, restart worker.
 # Called automatically by gp/gpl when this file exists at repo root.
 
+# Run migrations locally (hits remote DB via DATABASE_URL from frontend/.env.local)
+echo "[deploy] Running migrations..."
+source frontend/.env.local
+for f in migrations/*.sql; do
+  echo "  -> $f"
+  psql "$DATABASE_URL" -f "$f" 2>&1 | grep -v "already exists"
+done
+
 ssh studio "bash -lc '
   cd /Users/jtoy/projects/prengine || exit 1
   echo \"[deploy] Pulling latest code...\"
   git pull --ff-only
-
-  echo \"[deploy] Running migrations...\"
-  for f in migrations/*.sql; do
-    echo \"  -> \$f\"
-    psql \"\$DATABASE_URL\" -f \"\$f\" 2>&1 | grep -v \"already exists\"
-  done
 
   cd worker || exit 1
   echo \"[deploy] Installing dependencies...\"
