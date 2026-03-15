@@ -27,8 +27,12 @@
 
   if (showMode === "never") return;
 
+  var DISMISS_KEY = "prengine_widget_dismissed";
+  if (sessionStorage.getItem(DISMISS_KEY)) return;
+
   // State
   var button = null;
+  var dismissBtn = null;
   var badge = null;
   var overlay = null;
   var capturedErrors = [];
@@ -75,13 +79,45 @@
       '<path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/>' +
       '<path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>';
 
+    // Dismiss X button (visible on hover)
+    dismissBtn = document.createElement("div");
+    dismissBtn.setAttribute("role", "button");
+    dismissBtn.setAttribute("aria-label", "Hide widget");
+    Object.assign(dismissBtn.style, {
+      position: "absolute",
+      top: "-6px",
+      right: "-6px",
+      width: "18px",
+      height: "18px",
+      borderRadius: "50%",
+      backgroundColor: "#666",
+      color: "#fff",
+      fontSize: "12px",
+      lineHeight: "18px",
+      textAlign: "center",
+      cursor: "pointer",
+      opacity: "0",
+      transition: "opacity 0.15s ease",
+      zIndex: "2147483647",
+    });
+    dismissBtn.textContent = "\u00d7";
+    dismissBtn.addEventListener("click", function (e) {
+      e.stopPropagation();
+      sessionStorage.setItem(DISMISS_KEY, "1");
+      button.remove();
+      button = null;
+    });
+    button.appendChild(dismissBtn);
+
     button.addEventListener("mouseenter", function () {
       button.style.transform = "scale(1.1)";
       button.style.boxShadow = "0 6px 16px rgba(0,0,0,0.3)";
+      if (dismissBtn) dismissBtn.style.opacity = "1";
     });
     button.addEventListener("mouseleave", function () {
       button.style.transform = "scale(1)";
       button.style.boxShadow = "0 4px 12px rgba(0,0,0,0.25)";
+      if (dismissBtn) dismissBtn.style.opacity = "0";
     });
     button.addEventListener("click", openModal);
     button.addEventListener("keydown", function (e) {
