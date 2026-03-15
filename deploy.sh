@@ -1,13 +1,15 @@
 #!/bin/bash
-# Auto-deploy: SSH into studio, pull latest worker code, restart worker.
+# Auto-deploy: pull latest code on studio, restart worker.
 # Called automatically by gp/gpl when this file exists at repo root.
 
 ssh studio "bash -lc '
-  cd /Users/jtoy/projects/prengine/worker || exit 1
+  cd /Users/jtoy/projects/prengine || exit 1
   echo \"[deploy] Pulling latest code...\"
   git pull --ff-only
+
+  cd worker || exit 1
   echo \"[deploy] Installing dependencies...\"
-  bundle install --quiet
+  bundle install --quiet 2>/dev/null
 
   # Kill existing worker (run_worker.sh loop will auto-restart it)
   PIDS=\$(pgrep -f \"ruby worker.rb\" || true)
