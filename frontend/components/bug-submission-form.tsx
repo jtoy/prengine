@@ -35,12 +35,12 @@ export function BugSubmissionForm() {
     setError("")
 
     if (!title.trim()) {
-      setError("Please enter a title for the bug report")
+      setError("Please enter a title")
       return
     }
 
     if (!summary.trim()) {
-      setError("Please describe the bug")
+      setError("Please provide a description")
       return
     }
 
@@ -59,7 +59,7 @@ export function BugSubmissionForm() {
       })
       router.push(`/jobs/${job.id}`)
     } catch (err) {
-      setError("Failed to submit bug report. Please try again.")
+      setError("Failed to submit. Please try again.")
     } finally {
       setSubmitting(false)
     }
@@ -70,10 +70,10 @@ export function BugSubmissionForm() {
       <CardHeader>
         <div className="flex items-center gap-2">
           <Bug className="w-5 h-5 text-orange-600" />
-          <CardTitle>Report a Bug</CardTitle>
+          <CardTitle>Submit a Request</CardTitle>
         </div>
         <CardDescription>
-          Describe the bug and attach any relevant screenshots or videos. Our AI agent will work on a fix.
+          Describe a bug or feature request and attach any relevant screenshots or videos. Our AI agent will work on it.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -88,7 +88,7 @@ export function BugSubmissionForm() {
             <Label htmlFor="title">Title</Label>
             <Input
               id="title"
-              placeholder="Brief description of the bug"
+              placeholder="Brief description of the bug or feature"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               required
@@ -99,7 +99,7 @@ export function BugSubmissionForm() {
             <Label htmlFor="summary">Description</Label>
             <Textarea
               id="summary"
-              placeholder="What happened? What did you expect? Steps to reproduce..."
+              placeholder="Describe the bug or feature. Include steps to reproduce, expected behavior, etc."
               value={summary}
               onChange={(e) => setSummary(e.target.value)}
               className="min-h-32"
@@ -162,7 +162,7 @@ export function BugSubmissionForm() {
             ) : (
               <>
                 <Send className="w-4 h-4 mr-1" />
-                Submit Bug Report
+                Submit
               </>
             )}
           </Button>

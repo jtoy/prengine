@@ -130,7 +130,7 @@ export function JobDetail({ jobId }: { jobId: number }) {
       {/* Description & Attachments */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Bug Report</CardTitle>
+          <CardTitle className="text-base">Report</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {job.summary && <p className="text-sm whitespace-pre-wrap">{job.summary}</p>}
