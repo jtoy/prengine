@@ -33,7 +33,7 @@ loop do
 
     Thread.new(message) do |msg|
       jid = msg[:job_id]
-      active.synchronize { active_jobs[jid] = Thread.current }
+      active.synchronize { active_jobs[jid] = { thread: Thread.current, message: msg } }
 
       begin
         puts "[Worker] Starting: #{msg[:type]} for job ##{jid}"
@@ -43,6 +43,14 @@ loop do
       rescue => e
         puts "[Worker] Thread error on job ##{jid}: #{e.message}"
         puts e.backtrace.first(5).join("\n")
+
+        # Re-queue on crash so the job isn't lost
+        begin
+          RedisQueue.requeue(msg)
+          puts "[Worker] Re-queued job ##{jid} after crash"
+        rescue => req_err
+          puts "[Worker] Failed to re-queue job ##{jid}: #{req_err.message}"
+        end
       ensure
         active.synchronize { active_jobs.delete(jid) }
         slots << true

@@ -26,6 +26,11 @@ module RedisQueue
     JSON.parse(raw, symbolize_names: true)
   end
 
+  # Re-queue a message that failed processing (thread-safe)
+  def self.requeue(message)
+    connection.lpush(Config::QUEUE_KEY, message.to_json)
+  end
+
   # Publish a status update for a specific job (thread-safe)
   def self.publish_status(job_id, payload)
     channel = "#{Config::STATUS_CHANNEL}:#{job_id}"
