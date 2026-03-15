@@ -184,10 +184,10 @@ export function EmbedSubmissionForm({ project }: EmbedSubmissionFormProps) {
       <CardHeader>
         <div className="flex items-center gap-2">
           <Bug className="w-5 h-5 text-orange-600" />
-          <CardTitle>Report a Bug</CardTitle>
+          <CardTitle>Submit a Request</CardTitle>
         </div>
         <CardDescription>
-          Describe the bug and attach any relevant files.
+          Describe a bug or feature request and attach any relevant files.
           {project && <span className="ml-1 text-xs font-mono bg-muted px-1 rounded">{project}</span>}
         </CardDescription>
       </CardHeader>
