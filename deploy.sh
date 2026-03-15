@@ -7,6 +7,12 @@ ssh studio "bash -lc '
   echo \"[deploy] Pulling latest code...\"
   git pull --ff-only
 
+  echo \"[deploy] Running migrations...\"
+  for f in migrations/*.sql; do
+    echo \"  -> \$f\"
+    psql \"\$DATABASE_URL\" -f \"\$f\" 2>&1 | grep -v \"already exists\"
+  done
+
   cd worker || exit 1
   echo \"[deploy] Installing dependencies...\"
   bundle install --quiet 2>/dev/null
