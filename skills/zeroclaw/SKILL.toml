@@ -1,0 +1,30 @@
+[skill]
+name = "prengine"
+description = "Interact with Prengine, an automated bug-fixing platform that uses AI agents to fix bugs, run tests, and create pull requests"
+version = "1.0.0"
+author = "prengine"
+tags = ["bug-fixing", "automation", "github", "testing", "ci"]
+
+[[tools]]
+name = "prengine_list_jobs"
+description = "List all bug-fix jobs in Prengine. Returns JSON array of jobs with id, title, status, pr_url, created_at."
+kind = "shell"
+command = "curl -sf https://prengine.distark.com/api/jobs"
+
+[[tools]]
+name = "prengine_get_job"
+description = "Get details of a specific Prengine job by ID. Pass the job ID as part of the URL. Usage: replace JOB_ID in the command with the actual numeric job ID."
+kind = "shell"
+command = "curl -sf https://prengine.distark.com/api/jobs/${PRENGINE_JOB_ID}"
+
+[[tools]]
+name = "prengine_list_repos"
+description = "List all configured repositories available for bug-fix targeting in Prengine."
+kind = "shell"
+command = "curl -sf https://prengine.distark.com/api/repos"
+
+[[tools]]
+name = "prengine_get_job_runs"
+description = "Get all runs for a specific Prengine job. Each run represents an agent attempt (initial or follow-up). Replace JOB_ID with the actual job ID."
+kind = "shell"
+command = "curl -sf https://prengine.distark.com/api/jobs/${PRENGINE_JOB_ID}/runs"
