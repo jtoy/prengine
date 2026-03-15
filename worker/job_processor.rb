@@ -8,6 +8,7 @@ require_relative "test_runner"
 require_relative "ngrok_manager"
 require_relative "llm_client"
 require_relative "report_enricher"
+require_relative "video_analyzer"
 require_relative "config"
 
 class JobProcessor
@@ -45,6 +46,27 @@ class JobProcessor
         end
       else
         raw
+      end
+    end
+
+    # Analyze video attachments (if any)
+    if type != "followup"
+      attachments_raw = job["attachments"]
+      attachments = if attachments_raw.is_a?(String)
+        JSON.parse(attachments_raw) rescue []
+      elsif attachments_raw.is_a?(Array)
+        attachments_raw
+      else
+        []
+      end
+
+      if attachments.any? { |a| (a["mime_type"] || a[:mime_type] || "").start_with?("video/") }
+        log_step(job_id, 0, "Analyzing video attachments...")
+        video_analysis = VideoAnalyzer.analyze_video_attachments(attachments)
+        if video_analysis
+          prompt = "#{prompt}\n\n## Video Analysis (from screen recording)\n#{video_analysis}"
+          log_step(job_id, 0, "Video analysis complete: #{video_analysis.length} chars")
+        end
       end
     end
 

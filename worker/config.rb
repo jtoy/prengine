@@ -12,6 +12,7 @@ module Config
   LLM_PROVIDER     = ENV.fetch("LLM_PROVIDER", "ollama")       # ollama | anthropic
   LLM_MODEL        = ENV.fetch("LLM_MODEL", "gemma3")          # model name
   OLLAMA_URL       = ENV.fetch("OLLAMA_URL", "http://localhost:11434")
+  GEMINI_API_KEY   = ENV.fetch("GEMINI_API_KEY", "")
   CACHE_DIR         = File.join(WORK_DIR, "cache")
   REPO_DESCRIPTIONS = JSON.parse(ENV.fetch("REPO_DESCRIPTIONS", "{}"))
   QUEUE_KEY        = "bugfixvibe:jobs"
