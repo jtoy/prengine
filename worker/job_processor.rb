@@ -49,7 +49,7 @@ class JobProcessor
     end
 
     # Determine repos — multi-repo selection
-    repo_names = select_repos(job)
+    repo_names = select_repos(job, is_followup: type == "followup")
 
     if repo_names.empty?
       fail_job(job_id, nil, "No repository configured")
@@ -87,7 +87,7 @@ class JobProcessor
 
   private
 
-  def select_repos(job)
+  def select_repos(job, is_followup: false)
     # 1. If job has selected_repos, use those
     selected = parse_json_field(job["selected_repos"])
     if selected.is_a?(Array) && !selected.empty?
@@ -95,7 +95,28 @@ class JobProcessor
       return selected
     end
 
-    # 2. If job has repo_url, extract owner/name
+    # 2. For followups, extract repos from previous PR URLs
+    if is_followup
+      pr_urls = parse_json_field(job["pr_urls"])
+      if pr_urls.is_a?(Array) && !pr_urls.empty?
+        repos = pr_urls.map { |pr| pr["repo"] || pr[:repo] }.compact.uniq
+        if repos.any?
+          puts "[JobProcessor] Followup: reusing repos from previous PRs"
+          return repos
+        end
+      end
+      # Fall back to extracting from single pr_url
+      pr_url = job["pr_url"]
+      if pr_url && !pr_url.to_s.empty?
+        match = pr_url.match(%r{github\.com/(.+?)/(.+?)/pull/})
+        if match
+          puts "[JobProcessor] Followup: reusing repo from previous PR"
+          return ["#{match[1]}/#{match[2]}"]
+        end
+      end
+    end
+
+    # 3. If job has repo_url, extract owner/name
     repo_url = job["repo_url"]
     if repo_url && !repo_url.to_s.empty?
       match = repo_url.match(%r{github\.com[:/](.+?)/(.+?)(?:\.git)?$})
@@ -106,7 +127,7 @@ class JobProcessor
       return [repo_url] if repo_url.include?("/") && !repo_url.include?("://")
     end
 
-    # 3. LLM-based routing from configured repos
+    # 4. LLM-based routing from configured repos (new jobs only)
     if Config::REPOS.any?
       RepoRouter.route(job["title"], job["summary"], Config::REPOS)
     else
