@@ -92,3 +92,4 @@ ALTER TABLE jobs ADD COLUMN IF NOT EXISTS source_project VARCHAR(255);
 * fix tests
 * vercel prs appear in db
 * verify prs for multiple projects if needed
+*smart way to do screenshot or video of the issue
