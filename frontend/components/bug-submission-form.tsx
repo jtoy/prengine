@@ -141,7 +141,7 @@ export function BugSubmissionForm() {
                       }}
                       className="rounded border-gray-300"
                     />
-                    {repo}
+                    {repo.split("/").pop()}
                   </label>
                 ))}
               </div>
