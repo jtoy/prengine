@@ -136,6 +136,7 @@ export function EmbedFileUpload({ token, onFilesUploaded, existingFiles = [] }: 
       mediaRecorder.start(1000)
       setRecording(true)
       setRecordingTime(0)
+      window.parent.postMessage({ type: "PRENGINE_RECORDING_STATE", recording: true }, "*")
 
       timerRef.current = setInterval(() => {
         setRecordingTime((prev) => {
@@ -169,6 +170,7 @@ export function EmbedFileUpload({ token, onFilesUploaded, existingFiles = [] }: 
     mediaRecorderRef.current = null
     setRecording(false)
     setRecordingTime(0)
+    window.parent.postMessage({ type: "PRENGINE_RECORDING_STATE", recording: false }, "*")
   }
 
   const removeFile = (index: number) => {
