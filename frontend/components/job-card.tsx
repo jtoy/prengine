@@ -4,7 +4,7 @@ import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { JobStatusBadge } from "./job-status-badge"
 import type { Job } from "@/lib/db-types"
-import { Clock, Paperclip, User } from "lucide-react"
+import { Clock, Paperclip } from "lucide-react"
 
 export function JobCard({ job }: { job: Job }) {
   const timeAgo = getTimeAgo(new Date(job.created_at))
@@ -23,12 +23,9 @@ export function JobCard({ job }: { job: Job }) {
             <p className="text-sm text-muted-foreground line-clamp-2 mb-3">{job.summary}</p>
           )}
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
-            {job.created_by_name && (
-              <span className="flex items-center gap-1">
-                <User className="w-3 h-3" />
-                {job.created_by_name}
-              </span>
-            )}
+            {job.created_by_name ? (
+              <span>{job.created_by_name}</span>
+            ) : null}
             <span className="flex items-center gap-1">
               <Clock className="w-3 h-3" />
               {timeAgo}
