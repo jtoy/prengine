@@ -105,10 +105,6 @@ export function EmbedSubmissionForm({ project }: EmbedSubmissionFormProps) {
       setError("Please enter a title")
       return
     }
-    if (!summary.trim()) {
-      setError("Please describe the bug")
-      return
-    }
     if (!token) {
       setError("Not authenticated")
       return

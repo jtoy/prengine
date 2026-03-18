@@ -40,11 +40,6 @@ export function BugSubmissionForm() {
       return
     }
 
-    if (!summary.trim()) {
-      setError("Please provide a description")
-      return
-    }
-
     setSubmitting(true)
     try {
       const allAttachments = attachments.map(a => ({
