@@ -35,12 +35,6 @@ export default function DashboardPage() {
       <main className="p-6 space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">Dashboard</h1>
-          <Link href="/submit">
-            <Button className="gap-2">
-              <Plus className="w-4 h-4" />
-              Report Bug
-            </Button>
-          </Link>
         </div>
 
         {loading ? (
