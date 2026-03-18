@@ -337,6 +337,7 @@ class JobProcessor
 
   def log_step(job_id, step, msg)
     puts "[Job ##{job_id}] Step #{step}: #{msg}"
+    DB.insert_log(job_id, "info", "JobProcessor", "Step #{step}: #{msg}")
   end
 
   def update_status(job_id, run_id, run_number, job_status, run_status)
@@ -352,6 +353,7 @@ class JobProcessor
     end
     publish_update(job_id, run_id, nil, "failed", "failed")
     puts "[JobProcessor] Job ##{job_id} failed: #{reason}"
+    DB.insert_log(job_id, "error", "JobProcessor", "Job failed: #{reason}")
   end
 
   def publish_update(job_id, run_id, run_number, job_status, run_status, pr_url: nil, preview_url: nil)

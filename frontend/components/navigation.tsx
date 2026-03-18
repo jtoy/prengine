@@ -12,12 +12,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
-import { Bug, LayoutDashboard, List, Plus, Menu, LogOut, User } from "lucide-react"
+import { Bug, LayoutDashboard, List, Plus, Menu, LogOut, User, FileText } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 
 const navigationItems = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "Jobs", href: "/jobs", icon: List },
+  { name: "Logs", href: "/admin/logs", icon: FileText },
 ]
 
 export function Navigation() {

@@ -52,5 +52,14 @@ export interface Attachment {
   size?: number
 }
 
+export interface JobLog {
+  id: number
+  job_id: number | null
+  level: string
+  source: string
+  message: string
+  created_at: string
+}
+
 export type JobStatus = 'pending' | 'queued' | 'processing' | 'testing' | 'pr_submitted' | 'pr_merged' | 'failed'
 export type RunStatus = 'pending' | 'cloning' | 'running_agent' | 'running_tests' | 'pushing' | 'creating_pr' | 'starting_preview' | 'completed' | 'failed'

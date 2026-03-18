@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { fetchJobs, fetchJob, createJob, fetchRepos, fetchJobRuns, submitFollowup, uploadFiles } from '@/lib/api-client'
+import { fetchJobs, fetchJob, createJob, fetchRepos, fetchJobRuns, submitFollowup, uploadFiles, fetchLogs } from '@/lib/api-client'
 
 // Mock the utils module
 vi.mock('@/lib/utils', () => ({
@@ -143,6 +143,60 @@ describe('api-client', () => {
     it('throws on failure', async () => {
       mockAuthFetch.mockResolvedValue({ ok: false } as Response)
       await expect(submitFollowup(1, 'x')).rejects.toThrow('Failed to submit follow-up')
+    })
+  })
+
+  describe('fetchLogs', () => {
+    it('fetches logs with no filters', async () => {
+      const data = { logs: [{ id: 1, message: 'test' }], has_more: false }
+      mockAuthFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(data),
+      } as Response)
+
+      const result = await fetchLogs()
+      expect(result).toEqual(data)
+      expect(mockAuthFetch).toHaveBeenCalledWith('/api/admin/logs')
+    })
+
+    it('fetches logs with job_id filter', async () => {
+      const data = { logs: [], has_more: false }
+      mockAuthFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(data),
+      } as Response)
+
+      await fetchLogs({ job_id: 42 })
+      expect(mockAuthFetch).toHaveBeenCalledWith('/api/admin/logs?job_id=42')
+    })
+
+    it('fetches logs with level filter', async () => {
+      const data = { logs: [], has_more: false }
+      mockAuthFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(data),
+      } as Response)
+
+      await fetchLogs({ level: 'error' })
+      expect(mockAuthFetch).toHaveBeenCalledWith('/api/admin/logs?level=error')
+    })
+
+    it('fetches logs with combined filters', async () => {
+      const data = { logs: [], has_more: false }
+      mockAuthFetch.mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve(data),
+      } as Response)
+
+      await fetchLogs({ job_id: 5, level: 'info', since: '2024-01-01T00:00:00Z', limit: 50 })
+      expect(mockAuthFetch).toHaveBeenCalledWith(
+        '/api/admin/logs?job_id=5&level=info&since=2024-01-01T00%3A00%3A00Z&limit=50'
+      )
+    })
+
+    it('throws on failure', async () => {
+      mockAuthFetch.mockResolvedValue({ ok: false } as Response)
+      await expect(fetchLogs()).rejects.toThrow('Failed to fetch logs')
     })
   })
 

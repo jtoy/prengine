@@ -71,6 +71,15 @@ module DB
     result[0]["next_run"].to_i
   end
 
+  def self.insert_log(job_id, level, source, message)
+    query(
+      "INSERT INTO job_logs (job_id, level, source, message) VALUES ($1, $2, $3, $4)",
+      [job_id, level, source, message]
+    )
+  rescue => e
+    $stderr.puts "[DB.insert_log] Failed to write log: #{e.message}"
+  end
+
   # --- Repository config (from repositories table) ---
 
   def self.get_enabled_repos

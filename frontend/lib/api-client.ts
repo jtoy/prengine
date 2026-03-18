@@ -1,4 +1,4 @@
-import type { Job, JobRun } from './db-types'
+import type { Job, JobRun, JobLog } from './db-types'
 import { authenticatedFetch } from './utils'
 
 const API_BASE = '/api'
@@ -48,6 +48,25 @@ export async function submitFollowup(jobId: number, prompt: string): Promise<Job
     body: JSON.stringify({ prompt }),
   })
   if (!response.ok) throw new Error('Failed to submit follow-up')
+  return response.json()
+}
+
+export async function fetchLogs(params?: {
+  job_id?: number
+  level?: string
+  since?: string
+  limit?: number
+}): Promise<{ logs: JobLog[]; has_more: boolean }> {
+  const searchParams = new URLSearchParams()
+  if (params?.job_id) searchParams.set('job_id', String(params.job_id))
+  if (params?.level) searchParams.set('level', params.level)
+  if (params?.since) searchParams.set('since', params.since)
+  if (params?.limit) searchParams.set('limit', String(params.limit))
+
+  const qs = searchParams.toString()
+  const url = `${API_BASE}/admin/logs${qs ? `?${qs}` : ''}`
+  const response = await authenticatedFetch(url)
+  if (!response.ok) throw new Error('Failed to fetch logs')
   return response.json()
 }
 
