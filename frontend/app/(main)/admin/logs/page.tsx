@@ -55,10 +55,13 @@ export default function AdminLogsPage() {
       const data = await fetchLogs(params)
 
       if (since && data.logs.length > 0) {
-        // Prepend new logs (they come DESC, reverse for chronological append)
         lastDataAt.current = Date.now()
         setPollInterval(POLL_FAST)
-        setLogs(prev => [...prev, ...data.logs.reverse()])
+        setLogs(prev => {
+          const existingIds = new Set(prev.map(l => l.id))
+          const newLogs = data.logs.reverse().filter(l => !existingIds.has(l.id))
+          return newLogs.length > 0 ? [...prev, ...newLogs] : prev
+        })
       } else if (!since) {
         // Initial load — logs are DESC, reverse for display
         setLogs(data.logs.reverse())

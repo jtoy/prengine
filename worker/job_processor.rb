@@ -332,6 +332,9 @@ class JobProcessor
     if body.nil? || body.empty?
       body = "Auto-generated fix for job ##{job_id}\n\n**Bug report:** #{prompt}\n\n**Test status:** #{test_status}"
     end
+
+    # Append original bug report for reviewer context
+    body += "\n\n<details>\n<summary>Original Bug Report</summary>\n\n#{prompt}\n\n</details>"
     body
   end
 

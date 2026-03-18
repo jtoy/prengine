@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/db"
+import { getUserFromRequest } from "@/lib/auth-server"
 
 // GET /api/jobs/:id — get job detail
 export async function GET(
@@ -26,7 +27,48 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
+    const user = await getUserFromRequest(request)
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
     const body = await request.json()
+
+    // Close PRs action
+    if (body.action === "close_prs") {
+      const jobResult = await query("SELECT pr_urls FROM jobs WHERE id = $1", [params.id])
+      if (jobResult.rows.length === 0) {
+        return NextResponse.json({ error: "Job not found" }, { status: 404 })
+      }
+      const prUrls = jobResult.rows[0].pr_urls
+      const urls = typeof prUrls === "string" ? JSON.parse(prUrls) : prUrls
+      if (urls && urls.length > 0) {
+        const ghToken = process.env.GITHUB_TOKEN
+        for (const pr of urls) {
+          const match = pr.url?.match(/github\.com\/(.+?)\/(.+?)\/pull\/(\d+)/)
+          if (match && ghToken) {
+            try {
+              await fetch(`https://api.github.com/repos/${match[1]}/${match[2]}/pulls/${match[3]}`, {
+                method: "PATCH",
+                headers: {
+                  Authorization: `token ${ghToken}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ state: "closed" }),
+              })
+            } catch (e) {
+              console.error(`Failed to close PR ${pr.url}:`, e)
+            }
+          }
+        }
+      }
+      const result = await query(
+        "UPDATE jobs SET status = 'closed', updated_at = NOW() WHERE id = $1 RETURNING *",
+        [params.id]
+      )
+      return NextResponse.json(result.rows[0])
+    }
+
     const updates: string[] = []
     const values: any[] = []
     let paramIndex = 1

@@ -51,6 +51,15 @@ export async function submitFollowup(jobId: number, prompt: string): Promise<Job
   return response.json()
 }
 
+export async function closePRs(jobId: number): Promise<Job> {
+  const response = await authenticatedFetch(`${API_BASE}/jobs/${jobId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ action: 'close_prs' }),
+  })
+  if (!response.ok) throw new Error('Failed to close PRs')
+  return response.json()
+}
+
 export async function fetchLogs(params?: {
   job_id?: number
   level?: string

@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { JobStatusBadge } from "./job-status-badge"
 import { FollowupForm } from "./followup-form"
 import { useJobEvents } from "@/hooks/use-job-events"
-import { fetchJob, fetchJobRuns } from "@/lib/api-client"
+import { fetchJob, fetchJobRuns, closePRs } from "@/lib/api-client"
 import type { Job, JobRun } from "@/lib/db-types"
 import {
   ExternalLink,
@@ -19,12 +19,14 @@ import {
   Globe,
   Terminal,
   Sparkles,
+  XCircle,
 } from "lucide-react"
 
 export function JobDetail({ jobId }: { jobId: number }) {
   const [job, setJob] = useState<Job | null>(null)
   const [runs, setRuns] = useState<JobRun[]>([])
   const [loading, setLoading] = useState(true)
+  const [closing, setClosing] = useState(false)
 
   const loadData = async () => {
     try {
@@ -116,6 +118,29 @@ export function JobDetail({ jobId }: { jobId: number }) {
             </Button>
           </a>
         ) : null}
+        {(job.pr_urls?.length || job.pr_url) && job.status !== "closed" && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1 text-red-600 hover:text-red-700 hover:bg-red-50"
+            disabled={closing}
+            onClick={async () => {
+              if (!confirm("Close all PRs for this job?")) return
+              setClosing(true)
+              try {
+                const updated = await closePRs(jobId)
+                setJob(updated)
+              } catch (err) {
+                console.error("Failed to close PRs:", err)
+              } finally {
+                setClosing(false)
+              }
+            }}
+          >
+            <XCircle className="w-4 h-4" />
+            {closing ? "Closing..." : "Close PRs"}
+          </Button>
+        )}
         {latestRun?.preview_url && (
           <a href={latestRun.preview_url} target="_blank" rel="noopener noreferrer">
             <Button variant="outline" size="sm" className="gap-1">
