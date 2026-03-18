@@ -70,6 +70,7 @@ class AgentRunner
       #{user_prompt}
 
       #{workspace_hint}Fix the bug by modifying the necessary files. Make minimal, focused changes.
+      If applicable, add unit and e2e tests red/green TDD style.
       Run any existing tests to verify your fix works.
     PROMPT
   end

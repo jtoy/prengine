@@ -137,3 +137,4 @@ ALTER TABLE jobs ADD COLUMN IF NOT EXISTS source_project VARCHAR(255);
 * verify prs for multiple projects if needed
 * a way I can see the logs of everything as an admin
 * smart way to do screenshot or video of the issue
+* close PR link
