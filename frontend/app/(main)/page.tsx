@@ -27,8 +27,27 @@ export default function DashboardPage() {
   const failed = jobs.filter((j) => j.status === "failed")
   const merged = jobs.filter((j) => j.status === "pr_merged")
   const closed = jobs.filter((j) => j.status === "closed")
-  const resolved = merged.length + closed.length
-  const successRate = resolved > 0 ? Math.round((merged.length / resolved) * 100) : 0
+  const mergeRate = jobs.length > 0 ? Math.round((merged.length / jobs.length) * 100) : 0
+
+  // Weekly stats for trend (last 8 weeks)
+  const weeklyStats = (() => {
+    const weeks: { label: string; total: number; merged: number }[] = []
+    const now = new Date()
+    for (let i = 7; i >= 0; i--) {
+      const weekStart = new Date(now)
+      weekStart.setDate(now.getDate() - (i + 1) * 7)
+      const weekEnd = new Date(now)
+      weekEnd.setDate(now.getDate() - i * 7)
+      const weekJobs = jobs.filter((j) => {
+        const d = new Date(j.created_at)
+        return d >= weekStart && d < weekEnd
+      })
+      const weekMerged = weekJobs.filter((j) => j.status === "pr_merged").length
+      const mon = weekEnd.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+      weeks.push({ label: mon, total: weekJobs.length, merged: weekMerged })
+    }
+    return weeks.filter((w) => w.total > 0)
+  })()
 
   return (
     <ProtectedRoute>
@@ -130,13 +149,50 @@ export default function DashboardPage() {
                       <TrendingUp className="w-5 h-5 text-blue-600" />
                     </div>
                     <div>
-                      <p className="text-2xl font-bold">{resolved > 0 ? `${successRate}%` : "—"}</p>
+                      <p className="text-2xl font-bold">{jobs.length > 0 ? `${mergeRate}%` : "—"}</p>
                       <p className="text-sm text-muted-foreground">Merge Rate</p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
             </div>
+
+            {/* Weekly Trend */}
+            {weeklyStats.length > 0 && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base">Weekly Trend</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-end gap-2 h-24">
+                    {weeklyStats.map((week, i) => {
+                      const maxTotal = Math.max(...weeklyStats.map((w) => w.total), 1)
+                      const barHeight = Math.max((week.total / maxTotal) * 100, 8)
+                      const mergedHeight = week.total > 0 ? (week.merged / week.total) * barHeight : 0
+                      return (
+                        <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                          <div className="w-full relative" style={{ height: `${barHeight}%` }}>
+                            <div className="absolute bottom-0 w-full bg-gray-200 rounded-sm" style={{ height: "100%" }} />
+                            {mergedHeight > 0 && (
+                              <div className="absolute bottom-0 w-full bg-purple-500 rounded-sm" style={{ height: `${mergedHeight}%` }} />
+                            )}
+                          </div>
+                          <span className="text-[10px] text-muted-foreground">{week.label}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <span className="w-2 h-2 bg-gray-200 rounded-sm inline-block" /> Total
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <span className="w-2 h-2 bg-purple-500 rounded-sm inline-block" /> Merged
+                    </span>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Recent Jobs */}
             <div>

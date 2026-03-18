@@ -4,6 +4,7 @@ interface UserFromToken {
   id: number
   email: string
   name: string
+  role: string
 }
 
 export async function getUserFromRequest(request: NextRequest): Promise<UserFromToken | null> {
@@ -33,7 +34,8 @@ export async function getUserFromRequest(request: NextRequest): Promise<UserFrom
     return {
       id: userData.id,
       email: userData.email,
-      name: userData.name || userData.email?.split("@")[0] || "User"
+      name: userData.name || userData.email?.split("@")[0] || "User",
+      role: userData.role || "user",
     }
   } catch (error) {
     console.error("Error getting user from request:", error)

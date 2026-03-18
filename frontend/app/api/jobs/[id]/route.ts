@@ -34,6 +34,13 @@ export async function PATCH(
 
     const body = await request.json()
 
+    // Merge/close require admin role
+    if (body.action === "close_prs" || body.action === "merge_prs") {
+      if (user.role !== "admin") {
+        return NextResponse.json({ error: "Admin access required" }, { status: 403 })
+      }
+    }
+
     // Close PRs action
     if (body.action === "close_prs") {
       const ghToken = process.env.GITHUB_TOKEN
