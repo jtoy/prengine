@@ -114,7 +114,8 @@ class JobProcessorTest < Minitest::Test
       "summary" => "Bug description"
     }
 
-    RepoRouter.expects(:route).with("Bug title", "Bug description", Config::REPOS).returns(["owner/repo1"])
+    DB.expects(:get_enabled_repos).returns(["owner/repo1", "owner/repo2"])
+    RepoRouter.expects(:route).with("Bug title", "Bug description", ["owner/repo1", "owner/repo2"]).returns(["owner/repo1"])
 
     result = @processor.send(:select_repos, job)
     assert_equal ["owner/repo1"], result

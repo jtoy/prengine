@@ -15,6 +15,7 @@ class RepoRouterTest < Minitest::Test
 
   def test_uses_llm_when_more_than_two_repos
     repos = ["owner/frontend", "owner/backend", "owner/shared"]
+    DB.expects(:get_repo_descriptions).returns({})
     LLMClient.expects(:generate).returns("owner/frontend\nowner/backend")
 
     result = RepoRouter.route("CSS bug in header", "The header is misaligned", repos)
@@ -23,6 +24,7 @@ class RepoRouterTest < Minitest::Test
 
   def test_falls_back_to_all_when_llm_returns_nil
     repos = ["owner/a", "owner/b", "owner/c"]
+    DB.expects(:get_repo_descriptions).returns({})
     LLMClient.expects(:generate).returns(nil)
 
     result = RepoRouter.route("Bug", "Desc", repos)
@@ -31,6 +33,7 @@ class RepoRouterTest < Minitest::Test
 
   def test_falls_back_to_all_when_llm_returns_empty
     repos = ["owner/a", "owner/b", "owner/c"]
+    DB.expects(:get_repo_descriptions).returns({})
     LLMClient.expects(:generate).returns("")
 
     result = RepoRouter.route("Bug", "Desc", repos)
@@ -39,6 +42,7 @@ class RepoRouterTest < Minitest::Test
 
   def test_falls_back_when_no_valid_repos_parsed
     repos = ["owner/zx-alpha", "owner/zx-beta", "owner/zx-gamma"]
+    DB.expects(:get_repo_descriptions).returns({})
     LLMClient.expects(:generate).returns("some text with no matching repo names")
 
     result = RepoRouter.route("Bug", "Desc", repos)

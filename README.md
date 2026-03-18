@@ -66,6 +66,50 @@ Add to your HTML `<head>`:
 ></script>
 ```
 
+---
+
+## Repository Configuration
+
+Repositories are managed in the `repositories` database table — a single source of truth for both the frontend and worker. No need to keep env vars in sync across services.
+
+```sql
+-- migrations/007_create_repositories.sql
+CREATE TABLE IF NOT EXISTS repositories (
+  id SERIAL PRIMARY KEY,
+  name TEXT UNIQUE NOT NULL,
+  base_branch TEXT NOT NULL DEFAULT 'main',
+  description TEXT DEFAULT '',
+  enabled BOOLEAN NOT NULL DEFAULT true,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+### Adding / updating repos
+
+```sql
+-- Add a new repo (branches off dev)
+INSERT INTO repositories (name, base_branch) VALUES ('jtoy/cartoon_maker', 'dev');
+
+-- Add a repo with default branch (main)
+INSERT INTO repositories (name) VALUES ('distark/app');
+
+-- Disable a repo without deleting it
+UPDATE repositories SET enabled = false WHERE name = 'old/repo';
+
+-- Change a repo's base branch
+UPDATE repositories SET base_branch = 'staging' WHERE name = 'owner/repo';
+```
+
+| Column | Description |
+|--------|-------------|
+| `name` | GitHub `owner/repo` format |
+| `base_branch` | Branch that bugfix branches are created from and PRs target (default: `main`) |
+| `description` | Optional — used by LLM repo router for intelligent triage |
+| `enabled` | Set to `false` to hide without deleting |
+
+---
+
 ### Auth Requirement
 
 The host app must store a valid orca auth token in localStorage under the key specified by `data-token-key`:

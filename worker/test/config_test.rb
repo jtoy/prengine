@@ -13,17 +13,6 @@ class ConfigTest < Minitest::Test
     assert_equal "test-github-token", Config::GITHUB_TOKEN
   end
 
-  def test_repos_parsed_as_array
-    assert_kind_of Array, Config::REPOS
-    assert Config::REPOS.length >= 1
-  end
-
-  def test_repos_are_trimmed
-    Config::REPOS.each do |repo|
-      assert_equal repo.strip, repo
-    end
-  end
-
   def test_work_dir_has_default
     refute_nil Config::WORK_DIR
     refute Config::WORK_DIR.empty?
@@ -48,9 +37,5 @@ class ConfigTest < Minitest::Test
 
   def test_cache_dir_is_under_work_dir
     assert Config::CACHE_DIR.start_with?(Config::WORK_DIR)
-  end
-
-  def test_repo_descriptions_is_hash
-    assert_kind_of Hash, Config::REPO_DESCRIPTIONS
   end
 end

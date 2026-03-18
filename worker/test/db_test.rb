@@ -4,12 +4,8 @@ require_relative "../db"
 class DBTest < Minitest::Test
   def setup
     @mock_conn = mock("pg_connection")
-    # Set up a mock connection for the current thread
-    DB.instance_variable_set(:@connections, { Thread.current.object_id => @mock_conn })
-  end
-
-  def teardown
-    DB.instance_variable_set(:@connections, {})
+    @mock_conn.stubs(:close)
+    PG.stubs(:connect).returns(@mock_conn)
   end
 
   def test_query_delegates_to_connection
@@ -17,6 +13,12 @@ class DBTest < Minitest::Test
     @mock_conn.expects(:exec_params).with("SELECT 1", []).returns(mock_result)
     result = DB.query("SELECT 1")
     assert_equal mock_result, result
+  end
+
+  def test_query_closes_connection
+    @mock_conn.expects(:exec_params).returns(mock("result"))
+    @mock_conn.expects(:close)
+    DB.query("SELECT 1")
   end
 
   def test_update_job_builds_correct_sql
@@ -109,5 +111,62 @@ class DBTest < Minitest::Test
     @mock_conn.expects(:exec_params).returns(mock_result)
 
     assert_equal 3, DB.next_run_number(1)
+  end
+
+  # --- Repository config methods ---
+
+  def test_get_enabled_repos
+    mock_result = [{ "name" => "owner/repo1" }, { "name" => "owner/repo2" }]
+    @mock_conn.expects(:exec_params).with(
+      "SELECT name FROM repositories WHERE enabled = true ORDER BY id", []
+    ).returns(mock_result)
+
+    repos = DB.get_enabled_repos
+    assert_equal ["owner/repo1", "owner/repo2"], repos
+  end
+
+  def test_get_enabled_repos_empty
+    mock_result = []
+    @mock_conn.expects(:exec_params).returns(mock_result)
+
+    assert_equal [], DB.get_enabled_repos
+  end
+
+  def test_get_repo_branch_returns_configured_branch
+    mock_result = mock("result")
+    mock_result.expects(:ntuples).returns(1)
+    mock_result.expects(:[]).with(0).returns({ "base_branch" => "dev" })
+    @mock_conn.expects(:exec_params).with(
+      "SELECT base_branch FROM repositories WHERE name = $1 AND enabled = true", ["owner/repo1"]
+    ).returns(mock_result)
+
+    assert_equal "dev", DB.get_repo_branch("owner/repo1")
+  end
+
+  def test_get_repo_branch_defaults_to_main
+    mock_result = mock("result")
+    mock_result.expects(:ntuples).returns(0)
+    @mock_conn.expects(:exec_params).returns(mock_result)
+
+    assert_equal "main", DB.get_repo_branch("owner/unknown")
+  end
+
+  def test_get_repo_descriptions
+    mock_result = [
+      { "name" => "owner/repo1", "description" => "Frontend app" },
+      { "name" => "owner/repo2", "description" => "" },
+      { "name" => "owner/repo3", "description" => "API server" }
+    ]
+    @mock_conn.expects(:exec_params).returns(mock_result)
+
+    descs = DB.get_repo_descriptions
+    assert_equal({ "owner/repo1" => "Frontend app", "owner/repo3" => "API server" }, descs)
+  end
+
+  def test_get_repo_descriptions_skips_empty
+    mock_result = [{ "name" => "owner/repo1", "description" => "" }]
+    @mock_conn.expects(:exec_params).returns(mock_result)
+
+    assert_equal({}, DB.get_repo_descriptions)
   end
 end

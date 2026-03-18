@@ -5,7 +5,6 @@ module Config
   DATABASE_URL     = ENV.fetch("DATABASE_URL")
   REDIS_URL        = ENV.fetch("REDIS_URL", "redis://localhost:6379")
   GITHUB_TOKEN     = ENV.fetch("GITHUB_TOKEN")
-  REPOS            = ENV.fetch("REPOS", "").split(",").map(&:strip)
   WORK_DIR         = ENV.fetch("WORK_DIR", "/tmp/bugfixvibe")
   NGROK_AUTHTOKEN  = ENV.fetch("NGROK_AUTHTOKEN", "")
   MAX_CONCURRENCY  = ENV.fetch("MAX_CONCURRENCY", "3").to_i
@@ -14,7 +13,6 @@ module Config
   OLLAMA_URL       = ENV.fetch("OLLAMA_URL", "http://localhost:11434")
   GEMINI_API_KEY   = ENV.fetch("GEMINI_API_KEY", "")
   CACHE_DIR         = File.join(WORK_DIR, "cache")
-  REPO_DESCRIPTIONS = JSON.parse(ENV.fetch("REPO_DESCRIPTIONS", "{}"))
   QUEUE_KEY        = "bugfixvibe:jobs"
   STATUS_CHANNEL   = "bugfixvibe:status"
 end

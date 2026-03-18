@@ -13,12 +13,10 @@ require "redis"
 ENV["DATABASE_URL"] ||= "postgres://localhost/test_db"
 ENV["REDIS_URL"] ||= "redis://localhost:6379"
 ENV["GITHUB_TOKEN"] ||= "test-github-token"
-ENV["REPOS"] ||= "owner/repo1,owner/repo2"
 ENV["WORK_DIR"] ||= "/tmp/prengine-test"
 ENV["LLM_PROVIDER"] ||= "ollama"
 ENV["LLM_MODEL"] ||= "test-model"
 ENV["OLLAMA_URL"] ||= "http://localhost:11434"
 ENV["GEMINI_API_KEY"] ||= ""
-ENV["REPO_DESCRIPTIONS"] ||= '{}'
 
 require_relative "../config"

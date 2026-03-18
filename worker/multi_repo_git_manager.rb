@@ -1,5 +1,6 @@
 require "octokit"
 require_relative "config"
+require_relative "db"
 require_relative "workspace_manager"
 
 class MultiRepoGitManager
@@ -111,9 +112,10 @@ class MultiRepoGitManager
 
   def create_or_update_pr(full_repo, title, body)
     owner, _repo = full_repo.split("/")
+    base_branch = DB.get_repo_branch(full_repo)
 
     begin
-      pr = @client.create_pull_request(full_repo, "main", @branch_name, title, body)
+      pr = @client.create_pull_request(full_repo, base_branch, @branch_name, title, body)
       puts "[MultiRepoGitManager] PR created for #{full_repo}: #{pr.html_url}"
       pr.html_url
     rescue Octokit::UnprocessableEntity => e

@@ -1,4 +1,4 @@
-require_relative "config"
+require_relative "db"
 require_relative "llm_client"
 
 module RepoRouter
@@ -12,7 +12,7 @@ module RepoRouter
 
     puts "[RepoRouter] Routing across #{available_repos.length} repos via LLM..."
 
-    descriptions = Config::REPO_DESCRIPTIONS
+    descriptions = DB.get_repo_descriptions
     repo_list = available_repos.map do |repo|
       desc = descriptions[repo]
       desc ? "- #{repo}: #{desc}" : "- #{repo}"

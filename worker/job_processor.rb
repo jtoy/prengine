@@ -155,8 +155,9 @@ class JobProcessor
     end
 
     # 4. LLM-based routing from configured repos (new jobs only)
-    if Config::REPOS.any?
-      RepoRouter.route(job["title"], job["summary"], Config::REPOS)
+    configured_repos = DB.get_enabled_repos
+    if configured_repos.any?
+      RepoRouter.route(job["title"], job["summary"], configured_repos)
     else
       []
     end

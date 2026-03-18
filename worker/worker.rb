@@ -5,6 +5,7 @@ $stderr.sync = true
 
 require_relative "config"
 require_relative "redis_client"
+require_relative "db"
 require_relative "job_processor"
 
 MAX = Config::MAX_CONCURRENCY
@@ -17,7 +18,7 @@ puts "=== BugFixVibe Worker ==="
 puts "Listening on queue: #{Config::QUEUE_KEY}"
 puts "Max concurrency: #{MAX}"
 puts "Work directory: #{Config::WORK_DIR}"
-puts "Configured repos: #{Config::REPOS.join(', ')}"
+puts "Configured repos: #{DB.get_enabled_repos.join(', ')}"
 puts ""
 
 loop do

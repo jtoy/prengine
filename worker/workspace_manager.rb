@@ -1,5 +1,6 @@
 require "fileutils"
 require_relative "config"
+require_relative "db"
 require_relative "repo_cache"
 
 class WorkspaceManager
@@ -28,10 +29,13 @@ class WorkspaceManager
     puts "[WorkspaceManager] Repos: #{@repo_names.join(', ')}"
   end
 
-  # Create a branch in all repos.
+  # Create a branch in all repos, starting from each repo's configured base branch.
   def create_branches(branch_name)
-    each_repo_dir do |dir, _name|
+    each_repo_dir do |dir, name|
+      full_name = @repo_names.find { |r| r.split("/").last == name }
+      base_branch = DB.get_repo_branch(full_name)
       Dir.chdir(dir) do
+        system("git", "checkout", base_branch, exception: true)
         system("git", "checkout", "-b", branch_name, exception: true)
       end
     end

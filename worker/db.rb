@@ -2,24 +2,14 @@ require "pg"
 require_relative "config"
 
 module DB
-  @mutex = Mutex.new
-  @connections = {}
-
-  # Each thread gets its own PG connection
-  def self.connection
-    thread_id = Thread.current.object_id
-    @mutex.synchronize do
-      @connections[thread_id] ||= PG.connect(Config::DATABASE_URL)
-    end
-  end
-
+  # Connect-per-query: opens a connection, runs the query, and closes it.
+  # This lets Neon scale to zero between jobs instead of holding a persistent
+  # connection that keeps the compute active (billed per second).
   def self.query(sql, params = [])
-    connection.exec_params(sql, params)
-  rescue PG::ConnectionBad => e
-    # Reconnect on stale connection
-    thread_id = Thread.current.object_id
-    @mutex.synchronize { @connections.delete(thread_id) }
-    retry
+    conn = PG.connect(Config::DATABASE_URL)
+    conn.exec_params(sql, params)
+  ensure
+    conn&.close
   end
 
   def self.update_job(job_id, fields)
@@ -79,5 +69,24 @@ module DB
       [job_id]
     )
     result[0]["next_run"].to_i
+  end
+
+  # --- Repository config (from repositories table) ---
+
+  def self.get_enabled_repos
+    result = query("SELECT name FROM repositories WHERE enabled = true ORDER BY id")
+    result.map { |r| r["name"] }
+  end
+
+  def self.get_repo_branch(repo_name)
+    result = query("SELECT base_branch FROM repositories WHERE name = $1 AND enabled = true", [repo_name])
+    result.ntuples > 0 ? result[0]["base_branch"] : "main"
+  end
+
+  def self.get_repo_descriptions
+    result = query("SELECT name, description FROM repositories WHERE enabled = true ORDER BY id")
+    result.each_with_object({}) do |r, h|
+      h[r["name"]] = r["description"] unless r["description"].to_s.empty?
+    end
   end
 end
