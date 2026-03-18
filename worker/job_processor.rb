@@ -1,3 +1,4 @@
+require "open3"
 require_relative "db"
 require_relative "redis_client"
 require_relative "git_manager"
@@ -105,7 +106,8 @@ class JobProcessor
     run_id = run["id"].to_i
 
     begin
-      execute_pipeline(job_id, run_id, run["run_number"].to_i, repo_names, prompt)
+      submitter_name = job["created_by_name"] || job["created_by_email"] || "unknown"
+      execute_pipeline(job_id, run_id, run["run_number"].to_i, repo_names, prompt, submitter_name)
     rescue => e
       puts "[JobProcessor] Error: #{e.message}\n#{e.backtrace.first(5).join("\n")}"
       fail_job(job_id, run_id, e.message)
@@ -169,7 +171,7 @@ class JobProcessor
     JSON.parse(value) rescue nil
   end
 
-  def execute_pipeline(job_id, run_id, run_number, repo_names, prompt)
+  def execute_pipeline(job_id, run_id, run_number, repo_names, prompt, submitter_name)
     started_at = Time.now.utc
     git = MultiRepoGitManager.new(repo_names, job_id, run_number)
     repo_dirs = repo_names.map { |r| r.split("/").last }
@@ -236,20 +238,45 @@ class JobProcessor
       log_step(job_id, 4, "Test output:\n#{test_result[:output]}")
     end
 
-    # Step 5: Push all changed repos
-    log_step(job_id, 5, "Pushing #{commits.size} repo(s)...")
+    # Step 5: Run verification screenshots (if .bugfix/verify.sh exists)
+    screenshot_paths = []
+    git.workspace.each_repo_dir do |dir, name|
+      next unless commits.key?(name)
+      verify_script = File.join(dir, ".bugfix", "verify.sh")
+      next unless File.exist?(verify_script)
+
+      log_step(job_id, 5, "Running verification screenshots for #{name}...")
+      update_status(job_id, run_id, run_number, "testing", "verifying")
+      stdout, stderr, status = Open3.capture3("bash", verify_script, chdir: dir)
+      if status.success?
+        paths = stdout.strip.split("\n").select { |p| File.exist?(File.join(dir, p)) }
+        paths.each { |p| screenshot_paths << { repo: name, path: File.join(dir, p) } }
+        log_step(job_id, 5, "Verification done: #{paths.size} screenshot(s)")
+
+        # Amend commit to include screenshots
+        unless paths.empty?
+          system("git", "-C", dir, "add", ".bugfix/screenshots/", exception: true)
+          system("git", "-C", dir, "commit", "--amend", "--no-edit", exception: true)
+        end
+      else
+        log_step(job_id, 5, "Verification failed (non-fatal): #{stderr.to_s.lines.last&.strip}")
+      end
+    end
+
+    # Step 6: Push all changed repos
+    log_step(job_id, 6, "Pushing #{commits.size} repo(s)...")
     update_status(job_id, run_id, run_number, "testing", "pushing")
     git.push_all
-    log_step(job_id, 5, "Pushed")
+    log_step(job_id, 6, "Pushed")
 
-    # Step 6: Create PRs per changed repo
-    log_step(job_id, 6, "Creating PRs...")
+    # Step 7: Create PRs per changed repo
+    log_step(job_id, 7, "Creating PRs...")
     update_status(job_id, run_id, run_number, "testing", "creating_pr")
 
     diff = git.diff_summary
     pr_title = commit_msg.length > 72 ? commit_msg[0..71] : commit_msg
-    pr_body = generate_pr_body(diff_text, prompt, test_status, job_id)
-    log_step(job_id, 6, "PR title: #{pr_title}")
+    pr_body = generate_pr_body(diff_text, prompt, test_status, job_id, screenshot_paths, repo_names, git.branch_name, submitter_name)
+    log_step(job_id, 7, "PR title: #{pr_title}")
 
     pr_results = git.create_prs(title: pr_title, body: pr_body)
     first_pr_url = pr_results.first&.dig(:url)
@@ -269,7 +296,7 @@ class JobProcessor
 
     publish_update(job_id, run_id, run_number, "pr_submitted", "completed", pr_url: first_pr_url)
 
-    log_step(job_id, 6, "Done! #{pr_results.size} PR(s): #{pr_results.map { |r| r[:url] }.join(', ')} (#{duration_s}s)")
+    log_step(job_id, 7, "Done! #{pr_results.size} PR(s): #{pr_results.map { |r| r[:url] }.join(', ')} (#{duration_s}s)")
 
     git.cleanup
   end
@@ -303,7 +330,7 @@ class JobProcessor
     msg
   end
 
-  def generate_pr_body(diff_text, prompt, test_status, job_id)
+  def generate_pr_body(diff_text, prompt, test_status, job_id, screenshot_paths = [], repo_names = [], branch_name = nil, submitter_name = nil)
     llm_prompt = <<~P
       You are writing a GitHub pull request description.
 
@@ -331,6 +358,27 @@ class JobProcessor
     body = LLMClient.generate(llm_prompt)
     if body.nil? || body.empty?
       body = "Auto-generated fix for job ##{job_id}\n\n**Bug report:** #{prompt}\n\n**Test status:** #{test_status}"
+    end
+
+    # Append verification screenshots if any
+    if screenshot_paths.any? && branch_name
+      body += "\n\n## Verification Screenshots\n"
+      screenshot_paths.each do |s|
+        repo_short = s[:repo]
+        full_repo = repo_names.find { |r| r.split("/").last == repo_short }
+        next unless full_repo
+        # Relative path within the repo
+        repo_dir_prefix = File.join("", repo_short, "")
+        relative = s[:path].split(repo_dir_prefix).last
+        img_url = "https://raw.githubusercontent.com/#{full_repo}/#{branch_name}/#{relative}"
+        basename = File.basename(relative, ".*")
+        body += "![#{basename}](#{img_url})\n"
+      end
+    end
+
+    # Append submitter info
+    if submitter_name && !submitter_name.empty?
+      body += "\n\n**Submitted by:** #{submitter_name}"
     end
 
     # Append original bug report for reviewer context

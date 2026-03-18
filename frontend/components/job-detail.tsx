@@ -93,7 +93,9 @@ export function JobDetail({ jobId }: { jobId: number }) {
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">{job.title}</h1>
-          <p className="text-muted-foreground mt-1">Job #{job.id}</p>
+          <p className="text-muted-foreground mt-1">
+            Job #{job.id}{job.created_by_name && <span> by {job.created_by_name}</span>}
+          </p>
         </div>
         <JobStatusBadge status={job.status} />
       </div>

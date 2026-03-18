@@ -14,6 +14,7 @@ export interface Job {
   status: string
   created_by: number | null
   created_by_email: string | null
+  created_by_name: string | null
   pr_url: string | null
   pr_urls: { repo: string; url: string }[] | null
   selected_repos: string[] | null

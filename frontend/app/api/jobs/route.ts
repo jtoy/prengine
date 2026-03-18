@@ -32,10 +32,10 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await query(
-      `INSERT INTO jobs (title, summary, attachments, selected_repos, enrich, source_project, created_by, created_by_email, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'queued')
+      `INSERT INTO jobs (title, summary, attachments, selected_repos, enrich, source_project, created_by, created_by_email, created_by_name, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'queued')
        RETURNING *`,
-      [title, summary, JSON.stringify(attachments), JSON.stringify(selected_repos), enrich, source_project || null, user.id, user.email]
+      [title, summary, JSON.stringify(attachments), JSON.stringify(selected_repos), enrich, source_project || null, user.id, user.email, user.name]
     )
 
     const job = result.rows[0]
