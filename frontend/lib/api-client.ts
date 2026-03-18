@@ -60,6 +60,15 @@ export async function closePRs(jobId: number): Promise<Job> {
   return response.json()
 }
 
+export async function mergePRs(jobId: number): Promise<Job> {
+  const response = await authenticatedFetch(`${API_BASE}/jobs/${jobId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ action: 'merge_prs' }),
+  })
+  if (!response.ok) throw new Error('Failed to merge PRs')
+  return response.json()
+}
+
 export async function fetchLogs(params?: {
   job_id?: number
   level?: string

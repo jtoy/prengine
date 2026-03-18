@@ -69,6 +69,41 @@ export async function PATCH(
       return NextResponse.json(result.rows[0])
     }
 
+    // Merge PRs action
+    if (body.action === "merge_prs") {
+      const jobResult = await query("SELECT pr_urls FROM jobs WHERE id = $1", [params.id])
+      if (jobResult.rows.length === 0) {
+        return NextResponse.json({ error: "Job not found" }, { status: 404 })
+      }
+      const prUrls = jobResult.rows[0].pr_urls
+      const urls = typeof prUrls === "string" ? JSON.parse(prUrls) : prUrls
+      if (urls && urls.length > 0) {
+        const ghToken = process.env.GITHUB_TOKEN
+        for (const pr of urls) {
+          const match = pr.url?.match(/github\.com\/(.+?)\/(.+?)\/pull\/(\d+)/)
+          if (match && ghToken) {
+            try {
+              await fetch(`https://api.github.com/repos/${match[1]}/${match[2]}/pulls/${match[3]}/merge`, {
+                method: "PUT",
+                headers: {
+                  Authorization: `token ${ghToken}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ merge_method: "squash" }),
+              })
+            } catch (e) {
+              console.error(`Failed to merge PR ${pr.url}:`, e)
+            }
+          }
+        }
+      }
+      const result = await query(
+        "UPDATE jobs SET status = 'pr_merged', updated_at = NOW() WHERE id = $1 RETURNING *",
+        [params.id]
+      )
+      return NextResponse.json(result.rows[0])
+    }
+
     const updates: string[] = []
     const values: any[] = []
     let paramIndex = 1

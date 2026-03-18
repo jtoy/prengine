@@ -8,7 +8,7 @@ import { JobCard } from "@/components/job-card"
 import { fetchJobs } from "@/lib/api-client"
 import type { Job } from "@/lib/db-types"
 import Link from "next/link"
-import { Bug, Plus, Clock, CheckCircle, AlertCircle, Loader } from "lucide-react"
+import { Bug, Plus, Clock, CheckCircle, AlertCircle, Loader, GitMerge, XCircle, TrendingUp } from "lucide-react"
 
 export default function DashboardPage() {
   const [jobs, setJobs] = useState<Job[]>([])
@@ -25,6 +25,10 @@ export default function DashboardPage() {
   const inProgress = jobs.filter((j) => ["processing", "testing"].includes(j.status))
   const completed = jobs.filter((j) => ["pr_submitted", "pr_merged"].includes(j.status))
   const failed = jobs.filter((j) => j.status === "failed")
+  const merged = jobs.filter((j) => j.status === "pr_merged")
+  const closed = jobs.filter((j) => j.status === "closed")
+  const resolved = merged.length + closed.length
+  const successRate = resolved > 0 ? Math.round((merged.length / resolved) * 100) : 0
 
   return (
     <ProtectedRoute>
@@ -46,7 +50,7 @@ export default function DashboardPage() {
         ) : (
           <>
             {/* Metrics */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4">
               <Card>
                 <CardContent className="pt-6">
                   <div className="flex items-center gap-3">
@@ -95,6 +99,45 @@ export default function DashboardPage() {
                     <div>
                       <p className="text-2xl font-bold">{failed.length}</p>
                       <p className="text-sm text-muted-foreground">Failed</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-purple-100 rounded-lg">
+                      <GitMerge className="w-5 h-5 text-purple-600" />
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold">{merged.length}</p>
+                      <p className="text-sm text-muted-foreground">Merged</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-orange-100 rounded-lg">
+                      <XCircle className="w-5 h-5 text-orange-600" />
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold">{closed.length}</p>
+                      <p className="text-sm text-muted-foreground">Closed</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-6">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-100 rounded-lg">
+                      <TrendingUp className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold">{resolved > 0 ? `${successRate}%` : "—"}</p>
+                      <p className="text-sm text-muted-foreground">Merge Rate</p>
                     </div>
                   </div>
                 </CardContent>

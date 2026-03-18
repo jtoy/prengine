@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { JobStatusBadge } from "./job-status-badge"
 import { FollowupForm } from "./followup-form"
 import { useJobEvents } from "@/hooks/use-job-events"
-import { fetchJob, fetchJobRuns, closePRs } from "@/lib/api-client"
+import { fetchJob, fetchJobRuns, closePRs, mergePRs } from "@/lib/api-client"
 import type { Job, JobRun } from "@/lib/db-types"
 import {
   ExternalLink,
@@ -20,6 +20,7 @@ import {
   Terminal,
   Sparkles,
   XCircle,
+  GitMerge,
 } from "lucide-react"
 
 export function JobDetail({ jobId }: { jobId: number }) {
@@ -118,28 +119,51 @@ export function JobDetail({ jobId }: { jobId: number }) {
             </Button>
           </a>
         ) : null}
-        {(job.pr_urls?.length || job.pr_url) && job.status !== "closed" && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1 text-red-600 hover:text-red-700 hover:bg-red-50"
-            disabled={closing}
-            onClick={async () => {
-              if (!confirm("Close all PRs for this job?")) return
-              setClosing(true)
-              try {
-                const updated = await closePRs(jobId)
-                setJob(updated)
-              } catch (err) {
-                console.error("Failed to close PRs:", err)
-              } finally {
-                setClosing(false)
-              }
-            }}
-          >
-            <XCircle className="w-4 h-4" />
-            {closing ? "Closing..." : "Close PRs"}
-          </Button>
+        {(job.pr_urls?.length || job.pr_url) && !["closed", "pr_merged"].includes(job.status) && (
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1 text-green-600 hover:text-green-700 hover:bg-green-50"
+              disabled={closing}
+              onClick={async () => {
+                if (!confirm("Merge all PRs for this job?")) return
+                setClosing(true)
+                try {
+                  const updated = await mergePRs(jobId)
+                  setJob(updated)
+                } catch (err) {
+                  console.error("Failed to merge PRs:", err)
+                } finally {
+                  setClosing(false)
+                }
+              }}
+            >
+              <GitMerge className="w-4 h-4" />
+              {closing ? "..." : "Merge PRs"}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1 text-red-600 hover:text-red-700 hover:bg-red-50"
+              disabled={closing}
+              onClick={async () => {
+                if (!confirm("Close all PRs for this job?")) return
+                setClosing(true)
+                try {
+                  const updated = await closePRs(jobId)
+                  setJob(updated)
+                } catch (err) {
+                  console.error("Failed to close PRs:", err)
+                } finally {
+                  setClosing(false)
+                }
+              }}
+            >
+              <XCircle className="w-4 h-4" />
+              {closing ? "..." : "Close PRs"}
+            </Button>
+          </>
         )}
         {latestRun?.preview_url && (
           <a href={latestRun.preview_url} target="_blank" rel="noopener noreferrer">
