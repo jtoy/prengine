@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { EmbedFileUpload } from "./embed-file-upload"
 import type { Attachment } from "@/lib/db-types"
-import { Bug, Send, CheckCircle } from "lucide-react"
+import { Bug, Send, CheckCircle, Link } from "lucide-react"
 
 interface ErrorContext {
   message: string
@@ -32,6 +32,7 @@ export function EmbedSubmissionForm({ project }: EmbedSubmissionFormProps) {
   const [title, setTitle] = useState("")
   const [summary, setSummary] = useState("")
   const [attachments, setAttachments] = useState<Attachment[]>([])
+  const [mediaUrl, setMediaUrl] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState("")
   const [submitted, setSubmitted] = useState(false)
@@ -115,6 +116,24 @@ export function EmbedSubmissionForm({ project }: EmbedSubmissionFormProps) {
 
     setSubmitting(true)
     try {
+      const allAttachments = attachments.map((a) => ({
+        url: a.url,
+        filename: a.filename,
+        mime_type: a.mime_type,
+      }))
+
+      if (mediaUrl.trim()) {
+        const url = mediaUrl.trim()
+        const pathname = new URL(url).pathname
+        const filename = pathname.split("/").pop() || "media"
+        const ext = filename.split(".").pop()?.toLowerCase() || ""
+        const mimeMap: Record<string, string> = {
+          mp4: "video/mp4", webm: "video/webm", mov: "video/quicktime", avi: "video/x-msvideo",
+          png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp",
+        }
+        allAttachments.push({ url, filename, mime_type: mimeMap[ext] || "application/octet-stream" })
+      }
+
       const res = await fetch("/api/jobs", {
         method: "POST",
         headers: {
@@ -124,11 +143,7 @@ export function EmbedSubmissionForm({ project }: EmbedSubmissionFormProps) {
         body: JSON.stringify({
           title: title.trim(),
           summary: summary.trim(),
-          attachments: attachments.map((a) => ({
-            url: a.url,
-            filename: a.filename,
-            mime_type: a.mime_type,
-          })),
+          attachments: allAttachments,
           source_project: project || undefined,
         }),
       })
@@ -225,6 +240,23 @@ export function EmbedSubmissionForm({ project }: EmbedSubmissionFormProps) {
           <div className="space-y-2">
             <Label>Attachments</Label>
             <EmbedFileUpload token={token} onFilesUploaded={setAttachments} />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="embed-media-url" className="flex items-center gap-1">
+              <Link className="w-3 h-3" />
+              Media URL
+            </Label>
+            <Input
+              id="embed-media-url"
+              type="url"
+              placeholder="https://example.com/screenshot.png or video.mp4"
+              value={mediaUrl}
+              onChange={(e) => setMediaUrl(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Optional: paste a link to a video or image
+            </p>
           </div>
 
           <Button type="submit" className="w-full" disabled={submitting}>

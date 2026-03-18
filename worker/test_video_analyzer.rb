@@ -750,6 +750,326 @@ class TestProcessSingleVideo < Minitest::Test
 end
 
 # ---------------------------------------------------------------------------
+# Unit Tests — safe_parse_uri (URL escaping)
+# ---------------------------------------------------------------------------
+
+class TestSafeParseUri < Minitest::Test
+  def test_parses_simple_url
+    uri = VideoAnalyzer.send(:safe_parse_uri, "https://example.com/video.mp4")
+    assert uri
+    assert_equal "example.com", uri.host
+    assert_equal "/video.mp4", uri.path
+  end
+
+  def test_parses_url_with_query_params
+    url = "https://assets.distark.com/shows/studyturtle/artifacts/videos/BUGS/Kira_Branch/New_UI_Test/ObjectRotationIssue.mp4?t=1773721587222"
+    uri = VideoAnalyzer.send(:safe_parse_uri, url)
+    assert uri
+    assert_equal "assets.distark.com", uri.host
+    assert_includes uri.path, "ObjectRotationIssue.mp4"
+    assert_includes uri.to_s, "t=1773721587222"
+  end
+
+  def test_parses_url_with_multiple_query_params
+    url = "https://example.com/img.png?w=800&h=600&format=webp"
+    uri = VideoAnalyzer.send(:safe_parse_uri, url)
+    assert uri
+    assert_equal "/img.png", uri.path
+    assert_includes uri.to_s, "w=800"
+  end
+
+  def test_returns_nil_for_garbage_input
+    uri = VideoAnalyzer.send(:safe_parse_uri, "not a url")
+    assert_nil uri
+  end
+
+  def test_parses_http_url
+    uri = VideoAnalyzer.send(:safe_parse_uri, "http://localhost:3000/file.mp4")
+    assert uri
+    assert_equal "localhost", uri.host
+    assert_equal 3000, uri.port
+  end
+end
+
+# ---------------------------------------------------------------------------
+# Unit Tests — analyze_media_attachments
+# ---------------------------------------------------------------------------
+
+class TestAnalyzeMediaAttachments < Minitest::Test
+  def test_returns_nil_when_api_key_empty
+    with_api_key("") do
+      result = VideoAnalyzer.analyze_media_attachments([{ "mime_type" => "image/png", "url" => "http://x" }])
+      assert_nil result
+    end
+  end
+
+  def test_returns_nil_for_empty_attachments
+    assert_nil VideoAnalyzer.analyze_media_attachments([])
+  end
+
+  def test_returns_nil_when_no_media_attachments
+    attachments = [{ "mime_type" => "text/plain", "url" => "http://x/file.txt" }]
+    assert_nil VideoAnalyzer.analyze_media_attachments(attachments)
+  end
+
+  def test_processes_both_video_and_image_attachments
+    calls = []
+    impl = ->(att) { calls << att; "analysis for #{att['filename']}" }
+    stub_va(:process_single_media, impl) do
+      attachments = [
+        { "mime_type" => "video/mp4", "url" => "http://x/vid.mp4", "filename" => "vid.mp4" },
+        { "mime_type" => "image/png", "url" => "http://x/img.png", "filename" => "img.png" },
+        { "mime_type" => "text/plain", "url" => "http://x/file.txt", "filename" => "file.txt" },
+      ]
+      result = VideoAnalyzer.analyze_media_attachments(attachments)
+      assert_equal 2, calls.length
+      assert_includes result, "analysis for vid.mp4"
+      assert_includes result, "analysis for img.png"
+      refute_includes result, "file.txt"
+    end
+  end
+
+  def test_handles_image_only_attachments
+    impl = ->(att) { "analyzed-#{att['filename']}" }
+    stub_va(:process_single_media, impl) do
+      attachments = [
+        { "mime_type" => "image/jpeg", "url" => "http://x/photo.jpg", "filename" => "photo.jpg" },
+      ]
+      result = VideoAnalyzer.analyze_media_attachments(attachments)
+      assert_equal "analyzed-photo.jpg", result
+    end
+  end
+
+  def test_handles_symbol_keys
+    stub_va(:process_single_media, ->(_) { "ok" }) do
+      attachments = [{ mime_type: "image/png", url: "http://x/img.png", filename: "img.png" }]
+      assert_equal "ok", VideoAnalyzer.analyze_media_attachments(attachments)
+    end
+  end
+
+  def test_rescues_unexpected_errors
+    stub_va(:process_single_media, ->(_) { raise "boom" }) do
+      attachments = [{ "mime_type" => "image/png", "url" => "http://x/img.png" }]
+      result = VideoAnalyzer.analyze_media_attachments(attachments)
+      assert_nil result
+    end
+  end
+end
+
+# ---------------------------------------------------------------------------
+# Unit Tests — process_single_image
+# ---------------------------------------------------------------------------
+
+class TestProcessSingleImage < Minitest::Test
+  NOOP = ->(*_) { nil }
+
+  def test_returns_nil_when_download_fails
+    stub_va(:download_file, ->(*_) { nil }) do
+      stub_va(:delete_from_gemini, NOOP) do
+        stub_va(:cleanup_temp_files, NOOP) do
+          att = { "url" => "http://bad", "filename" => "img.png", "mime_type" => "image/png" }
+          assert_nil VideoAnalyzer.send(:process_single_image, att)
+        end
+      end
+    end
+  end
+
+  def test_does_not_call_convert_to_mp4
+    tmp = make_temp_video(".png")
+    convert_called = false
+    fi = { "name" => "files/abc", "uri" => "gs://abc" }
+
+    stub_va(:download_file, ->(*_) { tmp }) do
+      stub_va(:convert_to_mp4, ->(*_) { convert_called = true; [tmp, "image/png"] }) do
+        stub_va(:upload_to_gemini, ->(*_) { fi }) do
+          stub_va(:wait_for_processing, ->(_) { true }) do
+            stub_va(:analyze_with_gemini, ->(*_) { "Image shows a bug" }) do
+              stub_va(:delete_from_gemini, NOOP) do
+                stub_va(:cleanup_temp_files, NOOP) do
+                  att = { "url" => "http://x", "filename" => "img.png", "mime_type" => "image/png" }
+                  result = VideoAnalyzer.send(:process_single_image, att)
+                  assert_equal "Image shows a bug", result
+                  refute convert_called, "convert_to_mp4 should not be called for images"
+                end
+              end
+            end
+          end
+        end
+      end
+    end
+    File.delete(tmp) if File.exist?(tmp)
+  end
+
+  def test_uses_image_analysis_prompt
+    tmp = make_temp_video(".png")
+    fi = { "name" => "files/abc", "uri" => "gs://abc" }
+    prompt_used = nil
+
+    stub_va(:download_file, ->(*_) { tmp }) do
+      stub_va(:upload_to_gemini, ->(*_) { fi }) do
+        stub_va(:wait_for_processing, ->(_) { true }) do
+          stub_va(:analyze_with_gemini, ->(uri, mime, prompt) { prompt_used = prompt; "ok" }) do
+            stub_va(:delete_from_gemini, NOOP) do
+              stub_va(:cleanup_temp_files, NOOP) do
+                att = { "url" => "http://x", "filename" => "img.png", "mime_type" => "image/png" }
+                VideoAnalyzer.send(:process_single_image, att)
+                assert_equal VideoAnalyzer::IMAGE_ANALYSIS_PROMPT, prompt_used
+              end
+            end
+          end
+        end
+      end
+    end
+    File.delete(tmp) if File.exist?(tmp)
+  end
+
+  def test_cleans_up_on_error
+    tmp = make_temp_video(".png")
+    cleaned = []
+
+    stub_va(:download_file, ->(*_) { tmp }) do
+      stub_va(:upload_to_gemini, ->(*_) { raise "kaboom" }) do
+        stub_va(:delete_from_gemini, NOOP) do
+          stub_va(:cleanup_temp_files, ->(*paths) { cleaned.concat(paths.compact) }) do
+            att = { "url" => "http://x", "filename" => "img.png", "mime_type" => "image/png" }
+            result = VideoAnalyzer.send(:process_single_image, att)
+            assert_nil result
+            assert cleaned.include?(tmp), "temp files should be cleaned up after error"
+          end
+        end
+      end
+    end
+    File.delete(tmp) if File.exist?(tmp)
+  end
+end
+
+# ---------------------------------------------------------------------------
+# Unit Tests — process_single_media (routing)
+# ---------------------------------------------------------------------------
+
+class TestProcessSingleMedia < Minitest::Test
+  def test_routes_video_to_process_single_video
+    video_called = false
+    stub_va(:process_single_video, ->(_) { video_called = true; "video result" }) do
+      att = { "url" => "http://x", "filename" => "v.mp4", "mime_type" => "video/mp4" }
+      result = VideoAnalyzer.send(:process_single_media, att)
+      assert video_called
+      assert_equal "video result", result
+    end
+  end
+
+  def test_routes_image_to_process_single_image
+    image_called = false
+    stub_va(:process_single_image, ->(_) { image_called = true; "image result" }) do
+      att = { "url" => "http://x", "filename" => "img.png", "mime_type" => "image/png" }
+      result = VideoAnalyzer.send(:process_single_media, att)
+      assert image_called
+      assert_equal "image result", result
+    end
+  end
+
+  def test_routes_jpeg_to_image
+    image_called = false
+    stub_va(:process_single_image, ->(_) { image_called = true; "jpeg result" }) do
+      att = { "url" => "http://x", "filename" => "photo.jpg", "mime_type" => "image/jpeg" }
+      VideoAnalyzer.send(:process_single_media, att)
+      assert image_called
+    end
+  end
+
+  def test_routes_webm_to_video
+    video_called = false
+    stub_va(:process_single_video, ->(_) { video_called = true; "webm result" }) do
+      att = { "url" => "http://x", "filename" => "v.webm", "mime_type" => "video/webm" }
+      VideoAnalyzer.send(:process_single_media, att)
+      assert video_called
+    end
+  end
+end
+
+# ---------------------------------------------------------------------------
+# Unit Tests — download_file with URL escaping
+# ---------------------------------------------------------------------------
+
+class TestDownloadFileUrlEscaping < Minitest::Test
+  def test_downloads_url_with_query_params
+    responses = {
+      "/video.mp4" => proc { |req, res|
+        # Verify query string is preserved
+        res.body = "video_data"
+        res["Content-Type"] = "video/mp4"
+      }
+    }
+    with_local_server(responses) do |base|
+      path = VideoAnalyzer.send(:download_file, "#{base}/video.mp4?t=1773721587222", "video.mp4")
+      assert path
+      assert File.exist?(path)
+      assert_equal "video_data", File.read(path)
+      File.delete(path)
+    end
+  end
+
+  def test_downloads_image_file
+    responses = {
+      "/screenshot.png" => proc { |_req, res| res.body = "png_data"; res["Content-Type"] = "image/png" }
+    }
+    with_local_server(responses) do |base|
+      path = VideoAnalyzer.send(:download_file, "#{base}/screenshot.png", "screenshot.png")
+      assert path
+      assert_equal "png_data", File.read(path)
+      assert path.end_with?(".png")
+      File.delete(path)
+    end
+  end
+
+  def test_uses_bin_extension_for_no_ext_filename
+    responses = {
+      "/media" => proc { |_req, res| res.body = "data" }
+    }
+    with_local_server(responses) do |base|
+      path = VideoAnalyzer.send(:download_file, "#{base}/media", "noext")
+      assert path
+      assert path.end_with?(".bin")
+      File.delete(path)
+    end
+  end
+end
+
+# ---------------------------------------------------------------------------
+# Unit Tests — media_mime? and image_mime?
+# ---------------------------------------------------------------------------
+
+class TestMimeHelpers < Minitest::Test
+  def test_media_mime_video
+    assert VideoAnalyzer.media_mime?("video/mp4")
+    assert VideoAnalyzer.media_mime?("video/webm")
+  end
+
+  def test_media_mime_image
+    assert VideoAnalyzer.media_mime?("image/png")
+    assert VideoAnalyzer.media_mime?("image/jpeg")
+    assert VideoAnalyzer.media_mime?("image/gif")
+    assert VideoAnalyzer.media_mime?("image/webp")
+  end
+
+  def test_media_mime_rejects_other
+    refute VideoAnalyzer.media_mime?("text/plain")
+    refute VideoAnalyzer.media_mime?("application/json")
+    refute VideoAnalyzer.media_mime?("")
+  end
+
+  def test_image_mime_positive
+    assert VideoAnalyzer.image_mime?("image/png")
+    assert VideoAnalyzer.image_mime?("image/jpeg")
+  end
+
+  def test_image_mime_negative
+    refute VideoAnalyzer.image_mime?("video/mp4")
+    refute VideoAnalyzer.image_mime?("text/plain")
+  end
+end
+
+# ---------------------------------------------------------------------------
 # Integration Tests (LIVE=1)
 # ---------------------------------------------------------------------------
 

@@ -11,7 +11,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { FileUpload } from "./file-upload"
 import { createJob, fetchRepos } from "@/lib/api-client"
 import type { Attachment } from "@/lib/db-types"
-import { Bug, Send } from "lucide-react"
+import { Bug, Send, Link } from "lucide-react"
 
 export function BugSubmissionForm() {
   const [title, setTitle] = useState("")
@@ -19,6 +19,7 @@ export function BugSubmissionForm() {
   const [attachments, setAttachments] = useState<Attachment[]>([])
   const [selectedRepos, setSelectedRepos] = useState<string[]>([])
   const [availableRepos, setAvailableRepos] = useState<string[]>([])
+  const [mediaUrl, setMediaUrl] = useState("")
   const [enrich, setEnrich] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState("")
@@ -46,14 +47,28 @@ export function BugSubmissionForm() {
 
     setSubmitting(true)
     try {
+      const allAttachments = attachments.map(a => ({
+        url: a.url,
+        filename: a.filename,
+        mime_type: a.mime_type,
+      }))
+
+      if (mediaUrl.trim()) {
+        const url = mediaUrl.trim()
+        const pathname = new URL(url).pathname
+        const filename = pathname.split("/").pop() || "media"
+        const ext = filename.split(".").pop()?.toLowerCase() || ""
+        const mimeMap: Record<string, string> = {
+          mp4: "video/mp4", webm: "video/webm", mov: "video/quicktime", avi: "video/x-msvideo",
+          png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp",
+        }
+        allAttachments.push({ url, filename, mime_type: mimeMap[ext] || "application/octet-stream" })
+      }
+
       const job = await createJob({
         title: title.trim(),
         summary: summary.trim(),
-        attachments: attachments.map(a => ({
-          url: a.url,
-          filename: a.filename,
-          mime_type: a.mime_type,
-        })),
+        attachments: allAttachments,
         selected_repos: selectedRepos.length > 0 ? selectedRepos : undefined,
         enrich: enrich || undefined,
       })
@@ -151,6 +166,23 @@ export function BugSubmissionForm() {
           <div className="space-y-2">
             <Label>Attachments</Label>
             <FileUpload onFilesUploaded={setAttachments} />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="media-url" className="flex items-center gap-1">
+              <Link className="w-3 h-3" />
+              Media URL
+            </Label>
+            <Input
+              id="media-url"
+              type="url"
+              placeholder="https://example.com/screenshot.png or video.mp4"
+              value={mediaUrl}
+              onChange={(e) => setMediaUrl(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Optional: paste a link to a video or image for AI analysis
+            </p>
           </div>
 
           <Button type="submit" className="w-full" disabled={submitting}>

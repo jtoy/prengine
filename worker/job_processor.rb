@@ -60,12 +60,17 @@ class JobProcessor
         []
       end
 
-      if attachments.any? { |a| (a["mime_type"] || a[:mime_type] || "").start_with?("video/") }
-        log_step(job_id, 0, "Analyzing video attachments...")
-        video_analysis = VideoAnalyzer.analyze_video_attachments(attachments)
-        if video_analysis
-          prompt = "#{prompt}\n\n## Video Analysis (from screen recording)\n#{video_analysis}"
-          log_step(job_id, 0, "Video analysis complete: #{video_analysis.length} chars")
+      has_media = attachments.any? do |a|
+        mime = a["mime_type"] || a[:mime_type] || ""
+        mime.start_with?("video/") || mime.start_with?("image/")
+      end
+
+      if has_media
+        log_step(job_id, 0, "Analyzing media attachments...")
+        media_analysis = VideoAnalyzer.analyze_media_attachments(attachments)
+        if media_analysis
+          prompt = "#{prompt}\n\n## Media Analysis (from attached video/images)\n#{media_analysis}"
+          log_step(job_id, 0, "Media analysis complete: #{media_analysis.length} chars")
         end
       end
     end

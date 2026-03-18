@@ -89,7 +89,7 @@ ALTER TABLE jobs ADD COLUMN IF NOT EXISTS source_project VARCHAR(255);
 * where else can and should local llm like ollama be used to make the system work better, give ideas
 * store total input/output tokens so we can figure out how to reduce costs
 * zeroclaw skill support
-* fix tests
 * vercel prs appear in db
 * verify prs for multiple projects if needed
-*smart way to do screenshot or video of the issue
+* a way I can see the logs of everything as an admin
+* smart way to do screenshot or video of the issue
