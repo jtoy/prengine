@@ -14,6 +14,8 @@ interface EmbedFileUploadProps {
 export function EmbedFileUpload({ token, onFilesUploaded, existingFiles = [] }: EmbedFileUploadProps) {
   const [files, setFiles] = useState<Attachment[]>(existingFiles)
   const [uploading, setUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [uploadLabel, setUploadLabel] = useState("")
   const [recording, setRecording] = useState(false)
   const [recordingTime, setRecordingTime] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -24,6 +26,26 @@ export function EmbedFileUpload({ token, onFilesUploaded, existingFiles = [] }: 
 
   const MAX_DURATION = 120
 
+  const uploadWithProgress = useCallback((file: File): Promise<Attachment | null> => {
+    return new Promise((resolve) => {
+      const formData = new FormData()
+      formData.append('file', file)
+      const xhr = new XMLHttpRequest()
+      xhr.open('POST', '/api/upload')
+      xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) setUploadProgress(Math.round((e.loaded / e.total) * 100))
+      }
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try { resolve(JSON.parse(xhr.responseText)) } catch { resolve(null) }
+        } else { resolve(null) }
+      }
+      xhr.onerror = () => resolve(null)
+      xhr.send(formData)
+    })
+  }, [token])
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = e.target.files
     if (!selectedFiles || selectedFiles.length === 0) return
@@ -33,21 +55,10 @@ export function EmbedFileUpload({ token, onFilesUploaded, existingFiles = [] }: 
       const newAttachments: Attachment[] = []
       for (let i = 0; i < selectedFiles.length; i++) {
         const file = selectedFiles[i]
-        const formData = new FormData()
-        formData.append('file', file)
-
-        const response = await fetch('/api/upload', {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          body: formData,
-        })
-
-        if (response.ok) {
-          const attachment = await response.json()
-          newAttachments.push(attachment)
-        }
+        setUploadProgress(0)
+        setUploadLabel(selectedFiles.length > 1 ? `${file.name} (${i + 1}/${selectedFiles.length})` : file.name)
+        const attachment = await uploadWithProgress(file)
+        if (attachment) newAttachments.push(attachment)
       }
 
       const updated = [...files, ...newAttachments]
@@ -57,28 +68,21 @@ export function EmbedFileUpload({ token, onFilesUploaded, existingFiles = [] }: 
       console.error("Upload failed:", err)
     } finally {
       setUploading(false)
+      setUploadProgress(0)
+      setUploadLabel("")
       if (inputRef.current) inputRef.current.value = ""
     }
   }
 
   const uploadBlob = useCallback(async (blob: Blob) => {
     setUploading(true)
+    setUploadProgress(0)
+    setUploadLabel("Screen recording")
     try {
       const filename = `screen-recording-${Date.now()}.webm`
       const file = new File([blob], filename, { type: "video/webm" })
-      const formData = new FormData()
-      formData.append("file", file)
-
-      const response = await fetch("/api/upload", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        body: formData,
-      })
-
-      if (response.ok) {
-        const attachment = await response.json()
+      const attachment = await uploadWithProgress(file)
+      if (attachment) {
         setFiles((prev) => {
           const updated = [...prev, attachment]
           onFilesUploaded(updated)
@@ -89,8 +93,10 @@ export function EmbedFileUpload({ token, onFilesUploaded, existingFiles = [] }: 
       console.error("Recording upload failed:", err)
     } finally {
       setUploading(false)
+      setUploadProgress(0)
+      setUploadLabel("")
     }
-  }, [token, onFilesUploaded])
+  }, [onFilesUploaded, uploadWithProgress])
 
   const startRecording = async () => {
     try {
@@ -228,6 +234,21 @@ export function EmbedFileUpload({ token, onFilesUploaded, existingFiles = [] }: 
           {recording ? `Max ${MAX_DURATION / 60} min` : ""}
         </span>
       </div>
+
+      {uploading && (
+        <div className="space-y-1">
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span className="truncate">{uploadLabel}</span>
+            <span>{uploadProgress}%</span>
+          </div>
+          <div className="h-2 bg-muted rounded-full overflow-hidden">
+            <div
+              className="h-full bg-orange-600 rounded-full transition-all duration-200"
+              style={{ width: `${uploadProgress}%` }}
+            />
+          </div>
+        </div>
+      )}
 
       <input
         ref={inputRef}

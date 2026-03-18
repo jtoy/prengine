@@ -13,6 +13,7 @@ done
 ssh studio "bash -lc '
   cd /Users/jtoy/projects/prengine || exit 1
   echo \"[deploy] Pulling latest code...\"
+  git clean -fd worker/
   git pull --ff-only
 
   cd worker || exit 1
