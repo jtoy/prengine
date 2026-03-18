@@ -15,9 +15,7 @@ class RepoCache
 
     if Dir.exist?(bare_path)
       puts "[RepoCache] Fetching updates for #{repo_name}..."
-      Dir.chdir(bare_path) do
-        system("git", "fetch", "--all", "--prune", exception: true)
-      end
+      system("git", "-C", bare_path, "fetch", "--all", "--prune", exception: true)
     else
       puts "[RepoCache] Bare-cloning #{repo_name}..."
       url = authenticated_url(repo_name)
@@ -36,10 +34,8 @@ class RepoCache
     system("git", "clone", bare_path, dest, exception: true)
 
     # Set the remote back to the real GitHub URL (for push)
-    Dir.chdir(dest) do
-      real_url = "https://github.com/#{repo_name}.git"
-      system("git", "remote", "set-url", "origin", real_url, exception: true)
-    end
+    real_url = "https://github.com/#{repo_name}.git"
+    system("git", "-C", dest, "remote", "set-url", "origin", real_url, exception: true)
   end
 
   private

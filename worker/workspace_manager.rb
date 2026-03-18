@@ -1,4 +1,5 @@
 require "fileutils"
+require "shellwords"
 require_relative "config"
 require_relative "db"
 require_relative "repo_cache"
@@ -34,10 +35,8 @@ class WorkspaceManager
     each_repo_dir do |dir, name|
       full_name = @repo_names.find { |r| r.split("/").last == name }
       base_branch = DB.get_repo_branch(full_name)
-      Dir.chdir(dir) do
-        system("git", "checkout", base_branch, exception: true)
-        system("git", "checkout", "-b", branch_name, exception: true)
-      end
+      system("git", "-C", dir, "checkout", base_branch, exception: true)
+      system("git", "-C", dir, "checkout", "-b", branch_name, exception: true)
     end
   end
 
@@ -45,10 +44,8 @@ class WorkspaceManager
   def detect_changed_repos
     changed = []
     each_repo_dir do |dir, name|
-      Dir.chdir(dir) do
-        status = `git status --porcelain`.strip
-        changed << name unless status.empty?
-      end
+      status = `git -C #{dir.shellescape} status --porcelain`.strip
+      changed << name unless status.empty?
     end
     changed
   end
@@ -57,18 +54,17 @@ class WorkspaceManager
   def aggregate_diff_for_llm
     parts = []
     each_repo_dir do |dir, name|
-      Dir.chdir(dir) do
-        stat = `git diff --cached --stat 2>/dev/null`.strip
-        patch = `git diff --cached 2>/dev/null`
-        if stat.empty?
-          stat = `git diff --stat 2>/dev/null`.strip
-          patch = `git diff 2>/dev/null`
-        end
-        next if stat.empty? && patch.strip.empty?
-
-        truncated = patch.lines.first(150).join
-        parts << "=== #{name} ===\n#{stat}\n---\n#{truncated}"
+      esc = dir.shellescape
+      stat = `git -C #{esc} diff --cached --stat 2>/dev/null`.strip
+      patch = `git -C #{esc} diff --cached 2>/dev/null`
+      if stat.empty?
+        stat = `git -C #{esc} diff --stat 2>/dev/null`.strip
+        patch = `git -C #{esc} diff 2>/dev/null`
       end
+      next if stat.empty? && patch.strip.empty?
+
+      truncated = patch.lines.first(150).join
+      parts << "=== #{name} ===\n#{stat}\n---\n#{truncated}"
     end
     parts.join("\n\n")
   end

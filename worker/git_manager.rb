@@ -1,5 +1,6 @@
 require "octokit"
 require "fileutils"
+require "shellwords"
 require_relative "config"
 
 class GitManager
@@ -22,29 +23,22 @@ class GitManager
   end
 
   def create_branch
-    Dir.chdir(@work_path) do
-      system("git", "checkout", "-b", @branch_name, exception: true)
-    end
+    system("git", "-C", @work_path, "checkout", "-b", @branch_name, exception: true)
   end
 
   def commit(message)
-    Dir.chdir(@work_path) do
-      system("git", "add", "-A", exception: true)
+    system("git", "-C", @work_path, "add", "-A", exception: true)
 
-      # Check if there are changes to commit
-      status = `git status --porcelain`
-      return nil if status.strip.empty?
+    # Check if there are changes to commit
+    status = `git -C #{@work_path.shellescape} status --porcelain`
+    return nil if status.strip.empty?
 
-      system("git", "commit", "-m", message, exception: true)
-      sha = `git rev-parse HEAD`.strip
-      sha
-    end
+    system("git", "-C", @work_path, "commit", "-m", message, exception: true)
+    `git -C #{@work_path.shellescape} rev-parse HEAD`.strip
   end
 
   def push
-    Dir.chdir(@work_path) do
-      system("git", "push", "--force", "origin", @branch_name, exception: true)
-    end
+    system("git", "-C", @work_path, "push", "--force", "origin", @branch_name, exception: true)
   end
 
   def create_pr(title:, body:)
@@ -75,24 +69,21 @@ class GitManager
   end
 
   def diff_summary
-    Dir.chdir(@work_path) do
-      `git diff HEAD~1 --stat 2>/dev/null`.strip
-    end
+    `git -C #{@work_path.shellescape} diff HEAD~1 --stat 2>/dev/null`.strip
   end
 
   # Returns diff suitable for LLM consumption (stat + truncated patch)
   def diff_for_llm
-    Dir.chdir(@work_path) do
-      stat = `git diff --cached --stat 2>/dev/null`.strip
-      patch = `git diff --cached 2>/dev/null`
-      # If nothing staged, diff against working tree
-      if stat.empty?
-        stat = `git diff --stat 2>/dev/null`.strip
-        patch = `git diff 2>/dev/null`
-      end
-      truncated = patch.lines.first(200).join
-      "#{stat}\n---\n#{truncated}"
+    esc = @work_path.shellescape
+    stat = `git -C #{esc} diff --cached --stat 2>/dev/null`.strip
+    patch = `git -C #{esc} diff --cached 2>/dev/null`
+    # If nothing staged, diff against working tree
+    if stat.empty?
+      stat = `git -C #{esc} diff --stat 2>/dev/null`.strip
+      patch = `git -C #{esc} diff 2>/dev/null`
     end
+    truncated = patch.lines.first(200).join
+    "#{stat}\n---\n#{truncated}"
   end
 
   def cleanup

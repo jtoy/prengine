@@ -1,4 +1,5 @@
 require "octokit"
+require "shellwords"
 require_relative "config"
 require_relative "db"
 require_relative "workspace_manager"
@@ -40,16 +41,14 @@ class MultiRepoGitManager
     @workspace.each_repo_dir do |dir, name|
       next unless @changed_repos.include?(name)
 
-      Dir.chdir(dir) do
-        system("git", "add", "-A", exception: true)
-        status = `git status --porcelain`.strip
-        next if status.empty?
+      system("git", "-C", dir, "add", "-A", exception: true)
+      status = `git -C #{dir.shellescape} status --porcelain`.strip
+      next if status.empty?
 
-        system("git", "commit", "-m", message, exception: true)
-        sha = `git rev-parse HEAD`.strip
-        results[name] = sha
-        puts "[MultiRepoGitManager] Committed #{name}: #{sha}"
-      end
+      system("git", "-C", dir, "commit", "-m", message, exception: true)
+      sha = `git -C #{dir.shellescape} rev-parse HEAD`.strip
+      results[name] = sha
+      puts "[MultiRepoGitManager] Committed #{name}: #{sha}"
     end
 
     # Update changed_repos to only those that actually committed
@@ -62,10 +61,8 @@ class MultiRepoGitManager
     parts = []
     @workspace.each_repo_dir do |dir, name|
       next unless @changed_repos.include?(name)
-      Dir.chdir(dir) do
-        stat = `git diff HEAD~1 --stat 2>/dev/null`.strip
-        parts << "=== #{name} ===\n#{stat}" unless stat.empty?
-      end
+      stat = `git -C #{dir.shellescape} diff HEAD~1 --stat 2>/dev/null`.strip
+      parts << "=== #{name} ===\n#{stat}" unless stat.empty?
     end
     parts.join("\n\n")
   end
@@ -78,12 +75,10 @@ class MultiRepoGitManager
       repo_name = @repo_names.find { |r| r.split("/").last == name }
       next unless repo_name
 
-      Dir.chdir(dir) do
-        auth_url = "https://#{Config::GITHUB_TOKEN}@github.com/#{repo_name}.git"
-        system("git", "remote", "set-url", "origin", auth_url, exception: true)
-        system("git", "push", "--force", "origin", @branch_name, exception: true)
-        puts "[MultiRepoGitManager] Pushed #{name}"
-      end
+      auth_url = "https://#{Config::GITHUB_TOKEN}@github.com/#{repo_name}.git"
+      system("git", "-C", dir, "remote", "set-url", "origin", auth_url, exception: true)
+      system("git", "-C", dir, "push", "--force", "origin", @branch_name, exception: true)
+      puts "[MultiRepoGitManager] Pushed #{name}"
     end
   end
 
