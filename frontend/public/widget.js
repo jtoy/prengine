@@ -35,6 +35,7 @@
   var overlay = null;
   var capturedErrors = [];
   var isModalOpen = false;
+  var isRecording = false;
   var pollInterval = null;
 
   // --- Styles ---
@@ -199,7 +200,9 @@
       lineHeight: "1",
     });
     closeBtn.textContent = "\u00d7";
-    closeBtn.addEventListener("click", closeModal);
+    closeBtn.addEventListener("click", function () {
+      if (!isRecording) closeModal();
+    });
 
     var iframeSrc =
       baseUrl + "/embed/submit?project=" + encodeURIComponent(project);
@@ -218,9 +221,9 @@
     container.appendChild(iframe);
     overlay.appendChild(container);
 
-    // Close on overlay background click
+    // Close on overlay background click (but not while recording)
     overlay.addEventListener("click", function (e) {
-      if (e.target === overlay) closeModal();
+      if (e.target === overlay && !isRecording) closeModal();
     });
 
     document.body.appendChild(overlay);
@@ -252,6 +255,10 @@
         }, 2000);
       }
 
+      if (event.data.type === "PRENGINE_RECORDING_STATE") {
+        isRecording = !!event.data.recording;
+      }
+
       if (event.data.type === "PRENGINE_CLOSE") {
         closeModal();
       }
@@ -271,6 +278,7 @@
     overlay.remove();
     overlay = null;
     isModalOpen = false;
+    isRecording = false;
   }
 
   // --- Mode: always ---
