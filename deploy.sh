@@ -5,9 +5,16 @@
 # Run migrations locally (hits remote DB via DATABASE_URL from frontend/.env.local)
 echo "[deploy] Running migrations..."
 source frontend/.env.local
+psql "$DATABASE_URL" -c "CREATE TABLE IF NOT EXISTS schema_migrations (filename TEXT PRIMARY KEY, applied_at TIMESTAMP DEFAULT NOW());" 2>/dev/null
+applied=$(psql "$DATABASE_URL" -tAc "SELECT filename FROM schema_migrations;")
 for f in migrations/*.sql; do
+  name=$(basename "$f")
+  if echo "$applied" | grep -qx "$name"; then
+    continue
+  fi
   echo "  -> $f"
   psql "$DATABASE_URL" -f "$f" 2>&1 | grep -v "already exists"
+  psql "$DATABASE_URL" -c "INSERT INTO schema_migrations (filename) VALUES ('$name');" 2>/dev/null
 done
 
 ssh studio "bash -lc '
