@@ -136,4 +136,4 @@ ALTER TABLE jobs ADD COLUMN IF NOT EXISTS source_project VARCHAR(255);
 * vercel prs appear in db
 * verify prs for multiple projects if needed
 * smart way to do screenshot or video of the issue
-* close PR link
+* only submit files that pi/llm actually touched

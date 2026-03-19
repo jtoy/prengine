@@ -40,15 +40,30 @@ class MultiRepoGitManager
 
     @workspace.each_repo_dir do |dir, name|
       next unless @changed_repos.include?(name)
+      esc = dir.shellescape
 
-      system("git", "-C", dir, "add", "-A", exception: true)
-      status = `git -C #{dir.shellescape} status --porcelain`.strip
+      # Stage only files the agent actually touched:
+      # 1. Modified/deleted tracked files
+      modified = `git -C #{esc} diff --name-only`.strip.split("\n").reject(&:empty?)
+      # 2. New files that pass the repo's own .gitignore
+      untracked = `git -C #{esc} ls-files --others --exclude-standard`.strip.split("\n").reject(&:empty?)
+
+      files_to_add = modified + untracked
+      next if files_to_add.empty?
+
+      files_to_add.each { |f| system("git", "-C", dir, "add", "--", f) }
+
+      # Also stage any deletions
+      deleted = `git -C #{esc} diff --name-only --diff-filter=D`.strip.split("\n").reject(&:empty?)
+      deleted.each { |f| system("git", "-C", dir, "rm", "--cached", "--", f, exception: false) }
+
+      status = `git -C #{esc} status --porcelain`.strip
       next if status.empty?
 
       system("git", "-C", dir, "commit", "-m", message, exception: true)
-      sha = `git -C #{dir.shellescape} rev-parse HEAD`.strip
+      sha = `git -C #{esc} rev-parse HEAD`.strip
       results[name] = sha
-      puts "[MultiRepoGitManager] Committed #{name}: #{sha}"
+      puts "[MultiRepoGitManager] Committed #{name}: #{sha} (#{files_to_add.size} files)"
     end
 
     # Update changed_repos to only those that actually committed
