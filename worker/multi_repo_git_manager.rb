@@ -11,7 +11,7 @@ class MultiRepoGitManager
     @repo_names = repo_names
     @job_id = job_id
     @run_number = run_number
-    @branch_name = "bugfix/job-#{job_id}-run-#{run_number}"
+    @branch_name = "bugfix/job-#{job_id}"
     @workspace = WorkspaceManager.new(repo_names, job_id, run_number)
     @client = Octokit::Client.new(access_token: Config::GITHUB_TOKEN)
     @changed_repos = []

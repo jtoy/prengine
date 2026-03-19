@@ -30,13 +30,27 @@ class WorkspaceManager
     puts "[WorkspaceManager] Repos: #{@repo_names.join(', ')}"
   end
 
-  # Create a branch in all repos, starting from each repo's configured base branch.
+  # Create or checkout a branch in all repos.
+  # If the branch already exists on remote (follow-up run), check it out to build on previous commits.
+  # Otherwise, create a new branch from the configured base branch.
   def create_branches(branch_name)
     each_repo_dir do |dir, name|
       full_name = @repo_names.find { |r| r.split("/").last == name }
       base_branch = DB.get_repo_branch(full_name)
-      system("git", "-C", dir, "checkout", base_branch, exception: true)
-      system("git", "-C", dir, "checkout", "-b", branch_name, exception: true)
+
+      # Check if branch exists on remote (from a previous run)
+      remote_ref = `git -C #{dir.shellescape} ls-remote --heads origin #{branch_name} 2>/dev/null`.strip
+      if !remote_ref.empty?
+        # Follow-up: checkout existing branch with previous commits
+        system("git", "-C", dir, "fetch", "origin", branch_name, exception: true)
+        system("git", "-C", dir, "checkout", "-b", branch_name, "origin/#{branch_name}", exception: true)
+        puts "[WorkspaceManager] Checked out existing branch #{branch_name} for #{name}"
+      else
+        # First run: create new branch from base
+        system("git", "-C", dir, "checkout", base_branch, exception: true)
+        system("git", "-C", dir, "checkout", "-b", branch_name, exception: true)
+        puts "[WorkspaceManager] Created new branch #{branch_name} for #{name}"
+      end
     end
   end
 

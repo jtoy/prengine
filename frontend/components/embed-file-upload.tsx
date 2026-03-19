@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useCallback } from "react"
+import { useState, useRef, useCallback, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Upload, X, FileImage, FileVideo, FileText, Circle, Square } from "lucide-react"
 import type { Attachment } from "@/lib/db-types"
@@ -157,6 +157,17 @@ export function EmbedFileUpload({ token, onFilesUploaded, existingFiles = [] }: 
       mediaRecorderRef.current.stop()
     }
   }, [])
+
+  // Listen for parent widget telling us to stop recording
+  useEffect(() => {
+    const handler = (event: MessageEvent) => {
+      if (event.data?.type === "PRENGINE_STOP_RECORDING") {
+        stopRecording()
+      }
+    }
+    window.addEventListener("message", handler)
+    return () => window.removeEventListener("message", handler)
+  }, [stopRecording])
 
   const cleanup = () => {
     if (timerRef.current) {

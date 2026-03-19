@@ -37,6 +37,10 @@
   var isModalOpen = false;
   var isRecording = false;
   var pollInterval = null;
+  var stopPill = null;
+  var recordingStartTime = null;
+  var recordingTimerInterval = null;
+  var iframeRef = null;
 
   // --- Styles ---
   var BUTTON_SIZE = 40;
@@ -146,6 +150,98 @@
     button.appendChild(badge);
   }
 
+  function showStopPill() {
+    if (stopPill) return;
+
+    stopPill = document.createElement("div");
+    stopPill.id = "prengine-stop-pill";
+    stopPill.setAttribute("role", "button");
+    stopPill.setAttribute("tabindex", "0");
+    Object.assign(stopPill.style, {
+      position: "fixed",
+      bottom: "20px",
+      right: "20px",
+      display: "flex",
+      alignItems: "center",
+      gap: "8px",
+      padding: "8px 16px",
+      backgroundColor: "#dc2626",
+      color: "#fff",
+      borderRadius: "24px",
+      cursor: "pointer",
+      boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+      zIndex: "2147483647",
+      fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif",
+      fontSize: "14px",
+      fontWeight: "500",
+      transition: "transform 0.15s ease",
+      border: "none",
+      outline: "none",
+    });
+
+    // Pulsing red dot
+    var dot = document.createElement("span");
+    Object.assign(dot.style, {
+      width: "10px",
+      height: "10px",
+      borderRadius: "50%",
+      backgroundColor: "#fff",
+      display: "inline-block",
+      animation: "prengine-pulse 1.5s ease-in-out infinite",
+    });
+
+    var label = document.createElement("span");
+    label.textContent = "Stop Recording 0:00";
+
+    stopPill.appendChild(dot);
+    stopPill.appendChild(label);
+
+    // Add pulse animation
+    var styleTag = document.createElement("style");
+    styleTag.id = "prengine-pulse-style";
+    styleTag.textContent = "@keyframes prengine-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }";
+    document.head.appendChild(styleTag);
+
+    // Timer
+    recordingStartTime = Date.now();
+    recordingTimerInterval = setInterval(function () {
+      var elapsed = Math.floor((Date.now() - recordingStartTime) / 1000);
+      var m = Math.floor(elapsed / 60);
+      var s = elapsed % 60;
+      label.textContent = "Stop Recording " + m + ":" + (s < 10 ? "0" : "") + s;
+    }, 1000);
+
+    stopPill.addEventListener("mouseenter", function () {
+      stopPill.style.transform = "scale(1.05)";
+    });
+    stopPill.addEventListener("mouseleave", function () {
+      stopPill.style.transform = "scale(1)";
+    });
+
+    stopPill.addEventListener("click", function () {
+      // Tell iframe to stop recording
+      if (iframeRef && iframeRef.contentWindow) {
+        iframeRef.contentWindow.postMessage({ type: "PRENGINE_STOP_RECORDING" }, baseUrl);
+      }
+    });
+
+    document.body.appendChild(stopPill);
+  }
+
+  function hideStopPill() {
+    if (recordingTimerInterval) {
+      clearInterval(recordingTimerInterval);
+      recordingTimerInterval = null;
+    }
+    recordingStartTime = null;
+    if (stopPill) {
+      stopPill.remove();
+      stopPill = null;
+    }
+    var pulseStyle = document.getElementById("prengine-pulse-style");
+    if (pulseStyle) pulseStyle.remove();
+  }
+
   function openModal() {
     if (isModalOpen) return;
     isModalOpen = true;
@@ -220,6 +316,7 @@
     container.appendChild(closeBtn);
     container.appendChild(iframe);
     overlay.appendChild(container);
+    iframeRef = iframe;
 
     // Close on overlay background click (but not while recording)
     overlay.addEventListener("click", function (e) {
@@ -261,6 +358,17 @@
 
       if (event.data.type === "PRENGINE_RECORDING_STATE") {
         isRecording = !!event.data.recording;
+        if (isRecording) {
+          // Hide modal so it's not in the recording, show floating stop pill
+          if (overlay) overlay.style.display = "none";
+          if (button) button.style.display = "none";
+          showStopPill();
+        } else {
+          // Recording ended — show modal again for upload progress
+          hideStopPill();
+          if (overlay) overlay.style.display = "flex";
+          if (button) button.style.display = "flex";
+        }
       }
     }
 
@@ -277,8 +385,10 @@
     if (overlay._cleanup) overlay._cleanup();
     overlay.remove();
     overlay = null;
+    iframeRef = null;
     isModalOpen = false;
     isRecording = false;
+    hideStopPill();
   }
 
   // --- Mode: always ---
