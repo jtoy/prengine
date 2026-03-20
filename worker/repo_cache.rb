@@ -16,7 +16,7 @@ class RepoCache
 
     if Dir.exist?(bare_path)
       puts "[RepoCache] Fetching updates for #{repo_name}..."
-      _out, err, st = Open3.capture3("git", "-C", bare_path, "fetch", "--all", "--prune")
+      _out, err, st = Open3.capture3("git", "-C", bare_path, "fetch", "origin", "+refs/heads/*:refs/heads/*", "--prune")
       raise "git fetch failed for #{repo_name}: #{err}" unless st.success?
     else
       puts "[RepoCache] Bare-cloning #{repo_name}..."
