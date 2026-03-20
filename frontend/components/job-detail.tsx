@@ -10,6 +10,7 @@ import { FollowupForm } from "./followup-form"
 import { useJobEvents } from "@/hooks/use-job-events"
 import { fetchJob, fetchJobRuns, closePRs, mergePRs } from "@/lib/api-client"
 import type { Job, JobRun } from "@/lib/db-types"
+import { SessionTranscript } from "./session-transcript"
 import {
   ExternalLink,
   GitPullRequest,
@@ -283,7 +284,7 @@ export function JobDetail({ jobId }: { jobId: number }) {
                       <summary className="text-xs font-medium text-muted-foreground cursor-pointer flex items-center gap-1 hover:text-foreground">
                         <Terminal className="w-3 h-3" /> Session Transcript
                       </summary>
-                      <pre className="text-xs bg-muted p-2 rounded overflow-x-auto max-h-96 mt-1">{run.session_content}</pre>
+                      <SessionTranscript content={run.session_content} />
                     </details>
                   )}
 
