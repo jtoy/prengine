@@ -1,4 +1,5 @@
 require "open3"
+require "timeout"
 require_relative "db"
 require_relative "redis_client"
 require_relative "git_manager"
@@ -10,6 +11,7 @@ require_relative "ngrok_manager"
 require_relative "llm_client"
 require_relative "report_enricher"
 require_relative "video_analyzer"
+require_relative "verification_generator"
 require_relative "config"
 
 class JobProcessor
@@ -238,16 +240,34 @@ class JobProcessor
       log_step(job_id, 4, "Test output:\n#{test_result[:output]}")
     end
 
-    # Step 5: Run verification screenshots (if .bugfix/verify.sh exists)
+    # Step 5: Verification screenshots
     screenshot_paths = []
     git.workspace.each_repo_dir do |dir, name|
       next unless commits.key?(name)
       verify_script = File.join(dir, ".bugfix", "verify.sh")
+
+      # If no verify.sh exists, generate one via LLM (for web apps only)
+      unless File.exist?(verify_script)
+        if VerificationGenerator.web_app?(dir)
+          log_step(job_id, 5, "Generating verification scripts for #{name}...")
+          generated = VerificationGenerator.generate(dir, diff_text, prompt)
+          unless generated
+            log_step(job_id, 5, "Could not generate verification scripts for #{name}, skipping")
+            next
+          end
+        else
+          next
+        end
+      end
+
       next unless File.exist?(verify_script)
 
       log_step(job_id, 5, "Running verification screenshots for #{name}...")
       update_status(job_id, run_id, run_number, "testing", "verifying")
-      stdout, stderr, status = Open3.capture3("bash", verify_script, chdir: dir)
+      stdout, stderr, status = nil, nil, nil
+      Timeout.timeout(180) do
+        stdout, stderr, status = Open3.capture3("bash", verify_script, chdir: dir)
+      end
       if status.success?
         paths = stdout.strip.split("\n").select { |p| File.exist?(File.join(dir, p)) }
         paths.each { |p| screenshot_paths << { repo: name, path: File.join(dir, p) } }
@@ -255,12 +275,14 @@ class JobProcessor
 
         # Amend commit to include screenshots
         unless paths.empty?
-          system("git", "-C", dir, "add", ".bugfix/screenshots/", exception: true)
+          system("git", "-C", dir, "add", ".bugfix/", exception: true)
           system("git", "-C", dir, "commit", "--amend", "--no-edit", exception: true)
         end
       else
         log_step(job_id, 5, "Verification failed (non-fatal): #{stderr.to_s.lines.last&.strip}")
       end
+    rescue Timeout::Error
+      log_step(job_id, 5, "Verification timed out for #{name} (non-fatal)")
     end
 
     # Step 6: Push all changed repos
