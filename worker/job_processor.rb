@@ -285,8 +285,10 @@ class JobProcessor
 
         # Amend commit to include screenshots
         unless paths.empty?
-          system("git", "-C", dir, "add", ".bugfix/", exception: true)
-          system("git", "-C", dir, "commit", "--amend", "--no-edit", exception: true)
+          _o, err, st = Open3.capture3("git", "-C", dir, "add", ".bugfix/")
+          raise "git add .bugfix/ failed: #{err}" unless st.success?
+          _o, err, st = Open3.capture3("git", "-C", dir, "commit", "--amend", "--no-edit")
+          raise "git commit --amend failed: #{err}" unless st.success?
         end
       else
         log_step(job_id, 5, "Verification failed (non-fatal): #{stderr.to_s.lines.last&.strip}")

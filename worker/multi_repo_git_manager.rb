@@ -1,5 +1,6 @@
 require "octokit"
 require "shellwords"
+require "open3"
 require_relative "config"
 require_relative "db"
 require_relative "workspace_manager"
@@ -60,7 +61,8 @@ class MultiRepoGitManager
       status = `git -C #{esc} status --porcelain`.strip
       next if status.empty?
 
-      system("git", "-C", dir, "commit", "-m", message, exception: true)
+      _out, err, st = Open3.capture3("git", "-C", dir, "commit", "-m", message)
+      raise "git commit failed for #{name}: #{err}" unless st.success?
       sha = `git -C #{esc} rev-parse HEAD`.strip
       results[name] = sha
       puts "[MultiRepoGitManager] Committed #{name}: #{sha} (#{files_to_add.size} files)"
@@ -91,8 +93,12 @@ class MultiRepoGitManager
       next unless repo_name
 
       auth_url = "https://#{Config::GITHUB_TOKEN}@github.com/#{repo_name}.git"
-      system("git", "-C", dir, "remote", "set-url", "origin", auth_url, exception: true)
-      system("git", "-C", dir, "push", "--force", "origin", @branch_name, exception: true)
+      _out, err, status = Open3.capture3("git", "-C", dir, "remote", "set-url", "origin", auth_url)
+      raise "git remote set-url failed for #{name}: #{err}" unless status.success?
+
+      _out, err, status = Open3.capture3("git", "-C", dir, "push", "--force", "origin", @branch_name)
+      raise "git push failed for #{name}: #{err}" unless status.success?
+
       puts "[MultiRepoGitManager] Pushed #{name}"
     end
   end

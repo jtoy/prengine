@@ -1,4 +1,5 @@
 require "fileutils"
+require "open3"
 require_relative "config"
 
 class RepoCache
@@ -15,11 +16,13 @@ class RepoCache
 
     if Dir.exist?(bare_path)
       puts "[RepoCache] Fetching updates for #{repo_name}..."
-      system("git", "-C", bare_path, "fetch", "--all", "--prune", exception: true)
+      _out, err, st = Open3.capture3("git", "-C", bare_path, "fetch", "--all", "--prune")
+      raise "git fetch failed for #{repo_name}: #{err}" unless st.success?
     else
       puts "[RepoCache] Bare-cloning #{repo_name}..."
       url = authenticated_url(repo_name)
-      system("git", "clone", "--bare", url, bare_path, exception: true)
+      _out, err, st = Open3.capture3("git", "clone", "--bare", url, bare_path)
+      raise "git clone --bare failed for #{repo_name}: #{err}" unless st.success?
     end
 
     bare_path
@@ -31,11 +34,13 @@ class RepoCache
     raise "No cache for #{repo_name} — call ensure_cached first" unless Dir.exist?(bare_path)
 
     puts "[RepoCache] Local clone #{repo_name} -> #{dest}"
-    system("git", "clone", bare_path, dest, exception: true)
+    _out, err, st = Open3.capture3("git", "clone", bare_path, dest)
+    raise "git clone from cache failed for #{repo_name}: #{err}" unless st.success?
 
     # Set the remote back to the real GitHub URL (for push)
     real_url = "https://github.com/#{repo_name}.git"
-    system("git", "-C", dest, "remote", "set-url", "origin", real_url, exception: true)
+    _out, err, st = Open3.capture3("git", "-C", dest, "remote", "set-url", "origin", real_url)
+    raise "git remote set-url failed for #{repo_name}: #{err}" unless st.success?
   end
 
   private

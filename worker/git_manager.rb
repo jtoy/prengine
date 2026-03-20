@@ -1,6 +1,7 @@
 require "octokit"
 require "fileutils"
 require "shellwords"
+require "open3"
 require_relative "config"
 
 class GitManager
@@ -19,26 +20,31 @@ class GitManager
 
     # Use token in clone URL for auth
     authenticated_url = @repo_url.sub("https://", "https://#{Config::GITHUB_TOKEN}@")
-    system("git", "clone", "--depth", "1", authenticated_url, @work_path, exception: true)
+    _out, err, status = Open3.capture3("git", "clone", "--depth", "1", authenticated_url, @work_path)
+    raise "git clone failed: #{err}" unless status.success?
   end
 
   def create_branch
-    system("git", "-C", @work_path, "checkout", "-b", @branch_name, exception: true)
+    _out, err, status = Open3.capture3("git", "-C", @work_path, "checkout", "-b", @branch_name)
+    raise "git checkout failed: #{err}" unless status.success?
   end
 
   def commit(message)
-    system("git", "-C", @work_path, "add", "-A", exception: true)
+    _out, err, st = Open3.capture3("git", "-C", @work_path, "add", "-A")
+    raise "git add failed: #{err}" unless st.success?
 
     # Check if there are changes to commit
     status = `git -C #{@work_path.shellescape} status --porcelain`
     return nil if status.strip.empty?
 
-    system("git", "-C", @work_path, "commit", "-m", message, exception: true)
+    _out, err, st = Open3.capture3("git", "-C", @work_path, "commit", "-m", message)
+    raise "git commit failed: #{err}" unless st.success?
     `git -C #{@work_path.shellescape} rev-parse HEAD`.strip
   end
 
   def push
-    system("git", "-C", @work_path, "push", "--force", "origin", @branch_name, exception: true)
+    _out, err, status = Open3.capture3("git", "-C", @work_path, "push", "--force", "origin", @branch_name)
+    raise "git push failed: #{err}" unless status.success?
   end
 
   def create_pr(title:, body:)

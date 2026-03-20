@@ -1,5 +1,6 @@
 require "fileutils"
 require "shellwords"
+require "open3"
 require_relative "config"
 require_relative "db"
 require_relative "repo_cache"
@@ -40,19 +41,24 @@ class WorkspaceManager
 
       # Set authenticated remote URL so ls-remote works for private repos
       auth_url = "https://#{Config::GITHUB_TOKEN}@github.com/#{full_name}.git"
-      system("git", "-C", dir, "remote", "set-url", "origin", auth_url, exception: true)
+      _out, err, st = Open3.capture3("git", "-C", dir, "remote", "set-url", "origin", auth_url)
+      raise "git remote set-url failed for #{name}: #{err}" unless st.success?
 
       # Check if branch exists on remote (from a previous run)
       remote_ref = `git -C #{dir.shellescape} ls-remote --heads origin #{branch_name} 2>/dev/null`.strip
       if !remote_ref.empty?
         # Follow-up: checkout existing branch with previous commits
-        system("git", "-C", dir, "fetch", "origin", branch_name, exception: true)
-        system("git", "-C", dir, "checkout", "-b", branch_name, "origin/#{branch_name}", exception: true)
+        _out, err, st = Open3.capture3("git", "-C", dir, "fetch", "origin", branch_name)
+        raise "git fetch failed for #{name}: #{err}" unless st.success?
+        _out, err, st = Open3.capture3("git", "-C", dir, "checkout", "-b", branch_name, "origin/#{branch_name}")
+        raise "git checkout failed for #{name}: #{err}" unless st.success?
         puts "[WorkspaceManager] Checked out existing branch #{branch_name} for #{name}"
       else
         # First run: create new branch from base
-        system("git", "-C", dir, "checkout", base_branch, exception: true)
-        system("git", "-C", dir, "checkout", "-b", branch_name, exception: true)
+        _out, err, st = Open3.capture3("git", "-C", dir, "checkout", base_branch)
+        raise "git checkout #{base_branch} failed for #{name}: #{err}" unless st.success?
+        _out, err, st = Open3.capture3("git", "-C", dir, "checkout", "-b", branch_name)
+        raise "git checkout -b #{branch_name} failed for #{name}: #{err}" unless st.success?
         puts "[WorkspaceManager] Created new branch #{branch_name} for #{name}"
       end
     end
