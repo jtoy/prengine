@@ -42,6 +42,7 @@ export interface JobRun {
   test_output: string | null
   diff_summary: string | null
   prompt: string | null
+  session_content: string | null
   created_at: string
   finished_at: string | null
 }

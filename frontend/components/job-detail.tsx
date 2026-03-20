@@ -278,6 +278,15 @@ export function JobDetail({ jobId }: { jobId: number }) {
                     </div>
                   )}
 
+                  {run.session_content && (
+                    <details className="group">
+                      <summary className="text-xs font-medium text-muted-foreground cursor-pointer flex items-center gap-1 hover:text-foreground">
+                        <Terminal className="w-3 h-3" /> Session Transcript
+                      </summary>
+                      <pre className="text-xs bg-muted p-2 rounded overflow-x-auto max-h-96 mt-1">{run.session_content}</pre>
+                    </details>
+                  )}
+
                   <div className="flex items-center gap-4 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <Clock className="w-3 h-3" />

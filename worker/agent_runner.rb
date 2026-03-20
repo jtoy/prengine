@@ -8,9 +8,11 @@ class AgentRunner
 
   # work_path: directory to run agent from
   # repo_dirs: optional array of repo short names (for multi-repo prompt)
-  def initialize(work_path, repo_dirs: nil)
+  # session_path: optional path to JSONL session file for pi persistence
+  def initialize(work_path, repo_dirs: nil, session_path: nil)
     @work_path = work_path
     @repo_dirs = repo_dirs
+    @session_path = session_path
   end
 
   # Run the coding agent with the given prompt (non-interactive)
@@ -19,12 +21,14 @@ class AgentRunner
     full_prompt = build_prompt(prompt)
 
     puts "[AgentRunner] Working dir: #{@work_path}"
+    puts "[AgentRunner] Session: #{@session_path || '(none)'}"
     puts "[AgentRunner] Prompt length: #{full_prompt.length} chars"
     puts "[AgentRunner] Running: #{AGENT_CMD} -p ..."
 
     # Use bash -lc to load the full login shell environment (asdf, etc.)
     # Pass through API keys and relevant env vars explicitly
-    shell_cmd = "cd #{@work_path.shellescape} && #{AGENT_CMD} -p #{full_prompt.shellescape}"
+    session_flag = @session_path ? " --session #{@session_path.shellescape}" : ""
+    shell_cmd = "cd #{@work_path.shellescape} && #{AGENT_CMD}#{session_flag} -p #{full_prompt.shellescape}"
 
     env = {}
     env["ANTHROPIC_API_KEY"] = ENV["ANTHROPIC_API_KEY"] if ENV["ANTHROPIC_API_KEY"]

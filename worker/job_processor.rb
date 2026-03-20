@@ -1,4 +1,5 @@
 require "open3"
+require "fileutils"
 require "timeout"
 require_relative "db"
 require_relative "redis_client"
@@ -187,12 +188,21 @@ class JobProcessor
     # Step 2: Run coding agent from workspace root
     log_step(job_id, 2, "Running agent...")
     update_status(job_id, run_id, run_number, "processing", "running_agent")
-    agent = AgentRunner.new(git.work_path, repo_dirs: repo_dirs)
+    session_dir = "/tmp/bugfixvibe/sessions"
+    FileUtils.mkdir_p(session_dir)
+    session_path = File.join(session_dir, "job-#{job_id}.jsonl")
+    agent = AgentRunner.new(git.work_path, repo_dirs: repo_dirs, session_path: session_path)
     result = agent.run(prompt)
     log_step(job_id, 2, "Agent finished — success=#{result[:success]}, output=#{result[:output].to_s.length} chars")
 
     output_str = result[:output].to_s
     DB.update_run(run_id, { "logs" => output_str.length > 50_000 ? output_str[-50_000..] : output_str })
+
+    # Save session content to DB for web review
+    if File.exist?(session_path)
+      session_content = File.read(session_path)
+      DB.update_run(run_id, { "session_content" => session_content }) unless session_content.empty?
+    end
 
     unless result[:success]
       fail_reason = result[:output].to_s
