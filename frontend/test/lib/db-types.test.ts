@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import type { Job, JobRun, Attachment, User, JobStatus, RunStatus } from '@/lib/db-types'
+import type { Job, JobRun, Attachment, User, JobStatus, RunStatus, DirectorsPlan, DirectorsPlanScene } from '@/lib/db-types'
 
 describe('db-types', () => {
   it('Job type has required fields', () => {
@@ -65,5 +65,36 @@ describe('db-types', () => {
       'pushing', 'creating_pr', 'starting_preview', 'completed', 'failed',
     ]
     expect(statuses).toHaveLength(9)
+  })
+
+  it('DirectorsPlan type has required fields', () => {
+    const plan: DirectorsPlan = {
+      id: 1,
+      title: 'My Director Plan',
+      description: 'A test plan',
+      share_hash: 'abc123def456ghij',
+      created_by: 1,
+      created_by_email: 'user@test.com',
+      created_at: '2024-01-01T00:00:00Z',
+      updated_at: '2024-01-01T00:00:00Z',
+    }
+    expect(plan.id).toBe(1)
+    expect(plan.share_hash).toBe('abc123def456ghij')
+  })
+
+  it('DirectorsPlanScene type has required fields', () => {
+    const scene: DirectorsPlanScene = {
+      id: 1,
+      plan_id: 1,
+      scene_number: 1,
+      title: 'Opening shot',
+      description: 'Wide angle establishing shot',
+      sketch_url: 'https://example.com/sketch.png',
+      notes: 'Use warm lighting',
+      created_at: '2024-01-01T00:00:00Z',
+      updated_at: '2024-01-01T00:00:00Z',
+    }
+    expect(scene.scene_number).toBe(1)
+    expect(scene.sketch_url).toBe('https://example.com/sketch.png')
   })
 })

@@ -63,5 +63,28 @@ export interface JobLog {
   created_at: string
 }
 
+export interface DirectorsPlan {
+  id: number
+  title: string
+  description: string | null
+  share_hash: string
+  created_by: number | null
+  created_by_email: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface DirectorsPlanScene {
+  id: number
+  plan_id: number
+  scene_number: number
+  title: string | null
+  description: string | null
+  sketch_url: string | null
+  notes: string | null
+  created_at: string
+  updated_at: string
+}
+
 export type JobStatus = 'pending' | 'queued' | 'processing' | 'testing' | 'pr_submitted' | 'pr_merged' | 'failed'
 export type RunStatus = 'pending' | 'cloning' | 'running_agent' | 'running_tests' | 'pushing' | 'creating_pr' | 'starting_preview' | 'completed' | 'failed'
