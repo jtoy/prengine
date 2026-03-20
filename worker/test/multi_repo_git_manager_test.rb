@@ -4,7 +4,14 @@ require_relative "../multi_repo_git_manager"
 class MultiRepoGitManagerTest < Minitest::Test
   def test_initialize_sets_branch_name
     mgr = MultiRepoGitManager.new(["owner/repo1"], 1, 1)
-    assert_equal "bugfix/job-1-run-1", mgr.branch_name
+    assert_equal "bugfix/job-1", mgr.branch_name
+  end
+
+  def test_branch_name_same_across_runs
+    mgr1 = MultiRepoGitManager.new(["owner/repo1"], 5, 1)
+    mgr2 = MultiRepoGitManager.new(["owner/repo1"], 5, 3)
+    assert_equal mgr1.branch_name, mgr2.branch_name
+    assert_equal "bugfix/job-5", mgr1.branch_name
   end
 
   def test_work_path_delegates_to_workspace
@@ -29,7 +36,7 @@ class MultiRepoGitManagerTest < Minitest::Test
 
     DB.expects(:get_repo_branch).with("owner/repo").returns("main")
     mock_client.expects(:create_pull_request).with(
-      "owner/repo", "main", "bugfix/job-1-run-1", "Fix bug", "Body"
+      "owner/repo", "main", "bugfix/job-1", "Fix bug", "Body"
     ).returns(mock_pr)
 
     mgr.instance_variable_set(:@client, mock_client)
@@ -45,7 +52,7 @@ class MultiRepoGitManagerTest < Minitest::Test
 
     DB.expects(:get_repo_branch).with("owner/repo1").returns("dev")
     mock_client.expects(:create_pull_request).with(
-      "owner/repo1", "dev", "bugfix/job-1-run-1", "Fix bug", "Body"
+      "owner/repo1", "dev", "bugfix/job-1", "Fix bug", "Body"
     ).returns(mock_pr)
 
     mgr.instance_variable_set(:@client, mock_client)

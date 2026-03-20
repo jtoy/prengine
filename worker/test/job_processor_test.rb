@@ -175,4 +175,27 @@ class JobProcessorTest < Minitest::Test
     assert_includes result, "job #42"
     assert_includes result, "skipped"
   end
+
+  def test_generate_pr_body_includes_raw_agent_output
+    agent_output = "I found the bug in header.css and fixed the margin."
+    LLMClient.expects(:generate).returns("## Summary\nFixed it")
+    result = @processor.send(:generate_pr_body, "diff", "prompt", "passed", 1, [], [], nil, nil, agent_output)
+    assert_includes result, "Agent Output"
+    assert_includes result, "fixed the margin"
+  end
+
+  def test_generate_pr_body_truncates_long_agent_output
+    long_output = "x" * 20_000
+    LLMClient.expects(:generate).returns("## Summary\nDone")
+    result = @processor.send(:generate_pr_body, "diff", "prompt", "passed", 1, [], [], nil, nil, long_output)
+    # Should only include the last 10000 chars
+    assert result.length < 15_000, "Agent output should be truncated"
+  end
+
+  def test_generate_pr_body_works_without_agent_output
+    LLMClient.expects(:generate).returns("## Summary\nFixed")
+    result = @processor.send(:generate_pr_body, "diff", "prompt", "passed", 1, [], [], nil, nil, nil)
+    assert_includes result, "Summary"
+    refute_includes result, "Agent Output"
+  end
 end

@@ -275,7 +275,7 @@ class JobProcessor
 
     diff = git.diff_summary
     pr_title = commit_msg.length > 72 ? commit_msg[0..71] : commit_msg
-    pr_body = generate_pr_body(diff_text, prompt, test_status, job_id, screenshot_paths, repo_names, git.branch_name, submitter_name)
+    pr_body = generate_pr_body(diff_text, prompt, test_status, job_id, screenshot_paths, repo_names, git.branch_name, submitter_name, output_str)
     log_step(job_id, 7, "PR title: #{pr_title}")
 
     pr_results = git.create_prs(title: pr_title, body: pr_body)
@@ -330,7 +330,7 @@ class JobProcessor
     msg
   end
 
-  def generate_pr_body(diff_text, prompt, test_status, job_id, screenshot_paths = [], repo_names = [], branch_name = nil, submitter_name = nil)
+  def generate_pr_body(diff_text, prompt, test_status, job_id, screenshot_paths = [], repo_names = [], branch_name = nil, submitter_name = nil, agent_output = nil)
     llm_prompt = <<~P
       You are writing a GitHub pull request description.
 
@@ -358,6 +358,12 @@ class JobProcessor
     body = LLMClient.generate(llm_prompt)
     if body.nil? || body.empty?
       body = "Auto-generated fix for job ##{job_id}\n\n**Bug report:** #{prompt}\n\n**Test status:** #{test_status}"
+    end
+
+    # Append raw agent output
+    if agent_output && !agent_output.empty?
+      trimmed = agent_output.length > 10_000 ? agent_output[-10_000..] : agent_output
+      body += "\n\n<details>\n<summary>Agent Output</summary>\n\n```\n#{trimmed}\n```\n\n</details>"
     end
 
     # Append verification screenshots if any
