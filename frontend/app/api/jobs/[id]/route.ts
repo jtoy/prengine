@@ -36,7 +36,7 @@ export async function PATCH(
 
     // Merge/close require admin role
     if (body.action === "close_prs" || body.action === "merge_prs") {
-      if (user.role !== "admin") {
+      if (!user.roles.includes("admin")) {
         return NextResponse.json({ error: "Admin access required" }, { status: 403 })
       }
     }
