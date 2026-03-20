@@ -86,4 +86,101 @@ class TestRunnerTest < Minitest::Test
     result = runner.run
     assert_equal false, result[:command_not_found]
   end
+
+  def test_result_includes_empty_artifacts_when_skipped
+    runner = TestRunner.new(@tmp_dir)
+    result = runner.run
+    assert_equal [], result[:artifacts]
+  end
+
+  # --- collect_test_artifacts ---
+
+  def test_collect_artifacts_returns_empty_when_no_results_dir
+    runner = TestRunner.new(@tmp_dir)
+    artifacts = runner.collect_test_artifacts
+    assert_equal [], artifacts
+  end
+
+  def test_collect_artifacts_finds_screenshots
+    results_dir = File.join(@tmp_dir, "test-results")
+    FileUtils.mkdir_p(results_dir)
+    File.write(File.join(results_dir, "failure-screenshot.png"), "fake png data")
+
+    runner = TestRunner.new(@tmp_dir)
+    artifacts = runner.collect_test_artifacts
+
+    assert_equal 1, artifacts.length
+    assert_equal "failure-screenshot.png", artifacts[0][:filename]
+    assert_equal "image/png", artifacts[0][:mime_type]
+    assert artifacts[0][:path].end_with?("failure-screenshot.png")
+  end
+
+  def test_collect_artifacts_finds_videos
+    results_dir = File.join(@tmp_dir, "test-results", "test-chromium")
+    FileUtils.mkdir_p(results_dir)
+    File.write(File.join(results_dir, "video.webm"), "fake video data")
+
+    runner = TestRunner.new(@tmp_dir)
+    artifacts = runner.collect_test_artifacts
+
+    assert_equal 1, artifacts.length
+    assert_equal "video.webm", artifacts[0][:filename]
+    assert_equal "video/webm", artifacts[0][:mime_type]
+  end
+
+  def test_collect_artifacts_finds_nested_files
+    results_dir = File.join(@tmp_dir, "test-results", "test-name-chromium")
+    FileUtils.mkdir_p(results_dir)
+    File.write(File.join(results_dir, "test-failed-1.png"), "screenshot data")
+    File.write(File.join(results_dir, "video.mp4"), "video data")
+
+    runner = TestRunner.new(@tmp_dir)
+    artifacts = runner.collect_test_artifacts
+
+    assert_equal 2, artifacts.length
+    filenames = artifacts.map { |a| a[:filename] }
+    assert_includes filenames, "test-failed-1.png"
+    assert_includes filenames, "video.mp4"
+  end
+
+  def test_collect_artifacts_ignores_non_media_files
+    results_dir = File.join(@tmp_dir, "test-results")
+    FileUtils.mkdir_p(results_dir)
+    File.write(File.join(results_dir, "trace.json"), "{}")
+    File.write(File.join(results_dir, "log.txt"), "test log")
+    File.write(File.join(results_dir, "screenshot.png"), "png data")
+
+    runner = TestRunner.new(@tmp_dir)
+    artifacts = runner.collect_test_artifacts
+
+    assert_equal 1, artifacts.length
+    assert_equal "screenshot.png", artifacts[0][:filename]
+  end
+
+  def test_collect_artifacts_respects_size_limit
+    results_dir = File.join(@tmp_dir, "test-results")
+    FileUtils.mkdir_p(results_dir)
+
+    # Create a file larger than MAX_ARTIFACTS_SIZE
+    # We'll temporarily override the constant
+    runner = TestRunner.new(@tmp_dir)
+    # Write two files, each 100 bytes
+    File.write(File.join(results_dir, "a.png"), "x" * 100)
+    File.write(File.join(results_dir, "b.png"), "x" * 100)
+
+    artifacts = runner.collect_test_artifacts
+    assert_equal 2, artifacts.length
+  end
+
+  def test_mime_for_common_extensions
+    runner = TestRunner.new(@tmp_dir)
+    assert_equal "image/png", runner.send(:mime_for_extension, ".png")
+    assert_equal "image/jpeg", runner.send(:mime_for_extension, ".jpg")
+    assert_equal "image/jpeg", runner.send(:mime_for_extension, ".jpeg")
+    assert_equal "image/webp", runner.send(:mime_for_extension, ".webp")
+    assert_equal "image/gif", runner.send(:mime_for_extension, ".gif")
+    assert_equal "video/mp4", runner.send(:mime_for_extension, ".mp4")
+    assert_equal "video/webm", runner.send(:mime_for_extension, ".webm")
+    assert_equal "application/octet-stream", runner.send(:mime_for_extension, ".unknown")
+  end
 end
