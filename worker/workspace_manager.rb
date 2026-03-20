@@ -38,6 +38,10 @@ class WorkspaceManager
       full_name = @repo_names.find { |r| r.split("/").last == name }
       base_branch = DB.get_repo_branch(full_name)
 
+      # Set authenticated remote URL so ls-remote works for private repos
+      auth_url = "https://#{Config::GITHUB_TOKEN}@github.com/#{full_name}.git"
+      system("git", "-C", dir, "remote", "set-url", "origin", auth_url, exception: true)
+
       # Check if branch exists on remote (from a previous run)
       remote_ref = `git -C #{dir.shellescape} ls-remote --heads origin #{branch_name} 2>/dev/null`.strip
       if !remote_ref.empty?
