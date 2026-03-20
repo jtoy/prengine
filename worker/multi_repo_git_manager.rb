@@ -43,6 +43,10 @@ class MultiRepoGitManager
       next unless @changed_repos.include?(name)
       esc = dir.shellescape
 
+      # Reset index: the agent may have staged files (including node_modules)
+      # during its session. We unstage everything and re-add selectively.
+      `git -C #{esc} reset HEAD -- . 2>/dev/null`
+
       # Stage only files the agent actually touched:
       # 1. Modified/deleted tracked files
       modified = `git -C #{esc} diff --name-only`.strip.split("\n").reject(&:empty?)
