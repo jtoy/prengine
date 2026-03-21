@@ -14,18 +14,3 @@ const localStorageMock = (() => {
 })()
 
 Object.defineProperty(globalThis, 'localStorage', { value: localStorageMock })
-
-// Mock EventSource
-class MockEventSource {
-  url: string
-  onmessage: ((event: any) => void) | null = null
-  onerror: ((event: any) => void) | null = null
-  onopen: ((event: any) => void) | null = null
-  readyState = 0
-  close() { this.readyState = 2 }
-  constructor(url: string) {
-    this.url = url
-    this.readyState = 1
-  }
-}
-Object.defineProperty(globalThis, 'EventSource', { value: MockEventSource })

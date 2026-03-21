@@ -1,46 +1,56 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
-import { useJobEvents } from '@/hooks/use-job-events'
+import { useJobPolling } from '@/hooks/use-job-events'
 
-describe('useJobEvents', () => {
+describe('useJobPolling', () => {
   beforeEach(() => {
-    localStorage.clear()
+    vi.useFakeTimers()
   })
 
-  it('creates EventSource with correct URL', () => {
-    const onEvent = vi.fn()
-    renderHook(() => useJobEvents(42, onEvent))
-
-    // Check the last created EventSource
-    const es = (globalThis as any)._lastEventSource
-    // Since we use a mock, just check it was constructed
-    // The URL construction includes token
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
-  it('includes token in URL when available', () => {
-    localStorage.setItem('bugfixvibe_token', 'my-token')
-    const onEvent = vi.fn()
+  it('polls at idle rate (30s) by default', () => {
+    const onUpdate = vi.fn()
+    renderHook(() => useJobPolling(42, onUpdate))
 
-    // We can't easily check the URL from the mock, but we test
-    // the hook doesn't throw
-    const { unmount } = renderHook(() => useJobEvents(42, onEvent))
+    act(() => { vi.advanceTimersByTime(10000) })
+    expect(onUpdate).toHaveBeenCalledTimes(0)
+
+    act(() => { vi.advanceTimersByTime(20000) })
+    expect(onUpdate).toHaveBeenCalledTimes(1)
+  })
+
+  it('polls at active rate (5s) for processing statuses', () => {
+    const onUpdate = vi.fn()
+    const { result } = renderHook(() => useJobPolling(42, onUpdate))
+
+    act(() => { result.current.setLastStatus('running_agent') })
+
+    act(() => { vi.advanceTimersByTime(5000) })
+    expect(onUpdate).toHaveBeenCalledTimes(1)
+
+    act(() => { vi.advanceTimersByTime(5000) })
+    expect(onUpdate).toHaveBeenCalledTimes(2)
+  })
+
+  it('stops polling for terminal statuses', () => {
+    const onUpdate = vi.fn()
+    const { result } = renderHook(() => useJobPolling(42, onUpdate))
+
+    act(() => { result.current.setLastStatus('pr_merged') })
+
+    act(() => { vi.advanceTimersByTime(60000) })
+    expect(onUpdate).toHaveBeenCalledTimes(0)
+  })
+
+  it('cleans up on unmount', () => {
+    const onUpdate = vi.fn()
+    const { unmount } = renderHook(() => useJobPolling(42, onUpdate))
     unmount()
-  })
 
-  it('closes EventSource on unmount', () => {
-    const onEvent = vi.fn()
-    const { unmount } = renderHook(() => useJobEvents(42, onEvent))
-    // Should not throw on unmount
-    unmount()
-  })
-
-  it('re-creates EventSource when jobId changes', () => {
-    const onEvent = vi.fn()
-    const { rerender } = renderHook(
-      ({ jobId }) => useJobEvents(jobId, onEvent),
-      { initialProps: { jobId: 1 } }
-    )
-    rerender({ jobId: 2 })
-    // Should not throw
+    act(() => { vi.advanceTimersByTime(60000) })
+    expect(onUpdate).not.toHaveBeenCalled()
   })
 })

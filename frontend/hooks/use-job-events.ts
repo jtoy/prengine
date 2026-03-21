@@ -1,44 +1,47 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 
-interface JobEvent {
-  job_id: number
-  job_status: string
-  run_id?: number
-  run_status?: string
-  run_number?: number
-  pr_url?: string | null
-  preview_url?: string | null
-  updated_at: string
+const POLL_ACTIVE = 5000     // 5s — job is actively processing
+const POLL_IDLE = 30000      // 30s — job is queued/pending, not much happening
+const POLL_DONE = 0          // stop — terminal status
+
+const ACTIVE_STATUSES = new Set([
+  "processing", "cloning", "running_agent", "running_tests",
+  "pushing", "creating_pr", "starting_preview",
+])
+const TERMINAL_STATUSES = new Set(["pr_submitted", "pr_merged", "failed", "completed"])
+
+function intervalForStatus(status: string | null): number {
+  if (!status) return POLL_IDLE
+  if (TERMINAL_STATUSES.has(status)) return POLL_DONE
+  if (ACTIVE_STATUSES.has(status)) return POLL_ACTIVE
+  return POLL_IDLE
 }
 
-export function useJobEvents(jobId: number, onEvent: (data: JobEvent) => void) {
-  const onEventRef = useRef(onEvent)
-  onEventRef.current = onEvent
+export function useJobPolling(jobId: number, onUpdate: () => void) {
+  const [tabVisible, setTabVisible] = useState(true)
+  const [pollInterval, setPollInterval] = useState(POLL_IDLE)
+  const onUpdateRef = useRef(onUpdate)
+  onUpdateRef.current = onUpdate
 
   useEffect(() => {
-    const token = localStorage.getItem("bugfixvibe_token")
-    const url = `/api/jobs/${jobId}/events${token ? `?token=${encodeURIComponent(token)}` : ""}`
+    const handler = () => setTabVisible(!document.hidden)
+    document.addEventListener("visibilitychange", handler)
+    return () => document.removeEventListener("visibilitychange", handler)
+  }, [])
 
-    const es = new EventSource(url)
+  useEffect(() => {
+    if (!tabVisible || pollInterval === POLL_DONE) return
 
-    es.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data)
-        onEventRef.current(data)
-      } catch (e) {
-        console.error("Failed to parse SSE event:", e)
-      }
-    }
+    const timer = setInterval(() => {
+      onUpdateRef.current()
+    }, pollInterval)
 
-    es.onerror = () => {
-      // EventSource auto-reconnects on error
-      console.log("SSE connection error, will auto-reconnect")
-    }
+    return () => clearInterval(timer)
+  }, [jobId, tabVisible, pollInterval])
 
-    return () => {
-      es.close()
-    }
-  }, [jobId])
+  return {
+    setLastStatus: (status: string) => setPollInterval(intervalForStatus(status)),
+  }
 }

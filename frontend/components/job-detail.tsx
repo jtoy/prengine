@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { JobStatusBadge } from "./job-status-badge"
 import { FollowupForm } from "./followup-form"
-import { useJobEvents } from "@/hooks/use-job-events"
+import { useJobPolling } from "@/hooks/use-job-events"
 import { fetchJob, fetchJobRuns, closePRs, mergePRs } from "@/lib/api-client"
 import type { Job, JobRun } from "@/lib/db-types"
 import { SessionTranscript } from "./session-transcript"
@@ -49,30 +49,12 @@ export function JobDetail({ jobId }: { jobId: number }) {
     loadData()
   }, [jobId])
 
-  // SSE real-time updates
-  useJobEvents(jobId, (data) => {
-    if (data.job_status) {
-      setJob((prev) => prev ? { ...prev, status: data.job_status, pr_url: data.pr_url || prev.pr_url } : prev)
-    }
-    if (data.run_id) {
-      setRuns((prev) => {
-        const idx = prev.findIndex((r) => r.id === data.run_id)
-        if (idx >= 0) {
-          const updated = [...prev]
-          updated[idx] = {
-            ...updated[idx],
-            status: data.run_status,
-            pr_url: data.pr_url || updated[idx].pr_url,
-            preview_url: data.preview_url || updated[idx].preview_url,
-          }
-          return updated
-        }
-        // New run — reload
-        loadData()
-        return prev
-      })
-    }
-  })
+  // Poll for updates (pauses on hidden tab and terminal statuses)
+  const { setLastStatus } = useJobPolling(jobId, loadData)
+
+  useEffect(() => {
+    if (job) setLastStatus(job.status)
+  }, [job?.status])
 
   if (loading) {
     return (

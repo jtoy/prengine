@@ -24,11 +24,11 @@ const LEVEL_COLORS: Record<string, string> = {
 }
 
 // Adaptive polling intervals
-const POLL_FAST = 2000
-const POLL_MEDIUM = 5000
-const POLL_SLOW = 30000
-const IDLE_MEDIUM_THRESHOLD = 5000
-const IDLE_SLOW_THRESHOLD = 30000
+const POLL_FAST = 15000
+const POLL_MEDIUM = 30000
+const POLL_SLOW = 60000
+const IDLE_MEDIUM_THRESHOLD = 30000
+const IDLE_SLOW_THRESHOLD = 120000
 
 export default function AdminLogsPage() {
   const [logs, setLogs] = useState<JobLog[]>([])
@@ -39,6 +39,7 @@ export default function AdminLogsPage() {
   const [levelFilter, setLevelFilter] = useState("")
   const [pollInterval, setPollInterval] = useState(POLL_FAST)
 
+  const [tabVisible, setTabVisible] = useState(true)
   const logsEndRef = useRef<HTMLDivElement>(null)
   const lastDataAt = useRef<number>(Date.now())
   const timerRef = useRef<ReturnType<typeof setTimeout>>()
@@ -83,6 +84,13 @@ export default function AdminLogsPage() {
     }
   }, [jobIdFilter, levelFilter])
 
+  // Pause polling when tab is hidden
+  useEffect(() => {
+    const handleVisibility = () => setTabVisible(!document.hidden)
+    document.addEventListener("visibilitychange", handleVisibility)
+    return () => document.removeEventListener("visibilitychange", handleVisibility)
+  }, [])
+
   // Initial load
   useEffect(() => {
     setLoading(true)
@@ -92,9 +100,9 @@ export default function AdminLogsPage() {
     loadLogs()
   }, [jobIdFilter, levelFilter, loadLogs])
 
-  // Adaptive polling
+  // Adaptive polling (pauses when tab is hidden)
   useEffect(() => {
-    if (!live) return
+    if (!live || !tabVisible) return
 
     timerRef.current = setInterval(() => {
       const latest = logs.length > 0 ? logs[logs.length - 1].created_at : undefined
@@ -102,7 +110,7 @@ export default function AdminLogsPage() {
     }, pollInterval)
 
     return () => clearInterval(timerRef.current)
-  }, [live, pollInterval, logs, loadLogs])
+  }, [live, tabVisible, pollInterval, logs, loadLogs])
 
   // Auto-scroll
   useEffect(() => {
@@ -111,7 +119,7 @@ export default function AdminLogsPage() {
     }
   }, [logs, autoScroll])
 
-  const pollLabel = pollInterval === POLL_FAST ? "2s" : pollInterval === POLL_MEDIUM ? "5s" : "30s"
+  const pollLabel = !tabVisible ? "paused" : pollInterval === POLL_FAST ? "15s" : pollInterval === POLL_MEDIUM ? "30s" : "60s"
 
   return (
     <ProtectedRoute>
