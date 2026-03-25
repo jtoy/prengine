@@ -202,7 +202,7 @@ describe('api-client', () => {
 
   describe('uploadFiles', () => {
     it('uploads files sequentially and returns results', async () => {
-      localStorage.setItem('bugfixvibe_token', 'tok')
+      localStorage.setItem('distark_token', 'tok')
       const file1 = new File(['content1'], 'file1.png', { type: 'image/png' })
       const file2 = new File(['content2'], 'file2.jpg', { type: 'image/jpeg' })
 
@@ -225,7 +225,7 @@ describe('api-client', () => {
     })
 
     it('throws if any upload fails', async () => {
-      localStorage.setItem('bugfixvibe_token', 'tok')
+      localStorage.setItem('distark_token', 'tok')
       const file = new File(['x'], 'bad.png', { type: 'image/png' })
       vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }))
       await expect(uploadFiles([file])).rejects.toThrow('Failed to upload bad.png')

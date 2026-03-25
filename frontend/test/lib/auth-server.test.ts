@@ -42,6 +42,7 @@ describe('auth-server', () => {
         id: 1,
         email: 'test@example.com',
         name: 'Test User',
+        roles: [],
       })
       expect(mockFetch).toHaveBeenCalledWith(
         'https://orca.distark.com/api/v1/me.json',

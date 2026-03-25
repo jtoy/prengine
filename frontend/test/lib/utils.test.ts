@@ -30,7 +30,7 @@ describe('authenticatedFetch', () => {
   })
 
   it('adds auth header when token exists', async () => {
-    localStorage.setItem('bugfixvibe_token', 'test-token-123')
+    localStorage.setItem('distark_token', 'test-token-123')
     const mockFetch = vi.fn().mockResolvedValue(new Response('ok'))
     vi.stubGlobal('fetch', mockFetch)
 
@@ -58,7 +58,7 @@ describe('authenticatedFetch', () => {
   })
 
   it('passes through additional options', async () => {
-    localStorage.setItem('bugfixvibe_token', 'tok')
+    localStorage.setItem('distark_token', 'tok')
     const mockFetch = vi.fn().mockResolvedValue(new Response('ok'))
     vi.stubGlobal('fetch', mockFetch)
 

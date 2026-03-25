@@ -19,20 +19,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    const storedUser = localStorage.getItem("bugfixvibe_user")
-    const storedToken = localStorage.getItem("bugfixvibe_token")
+    const storedUser = localStorage.getItem("distark_user")
+    const storedToken = localStorage.getItem("distark_token")
 
     if (storedUser && storedToken) {
       try {
         setUser(JSON.parse(storedUser))
       } catch (error) {
         console.error("Failed to parse stored user:", error)
-        localStorage.removeItem("bugfixvibe_user")
-        localStorage.removeItem("bugfixvibe_token")
+        localStorage.removeItem("distark_user")
+        localStorage.removeItem("distark_token")
       }
     } else {
-      localStorage.removeItem("bugfixvibe_user")
-      localStorage.removeItem("bugfixvibe_token")
+      localStorage.removeItem("distark_user")
+      localStorage.removeItem("distark_token")
     }
     setIsLoading(false)
   }, [])
@@ -60,7 +60,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const data = await response.json()
 
       if (data.token) {
-        localStorage.setItem("bugfixvibe_token", data.token)
+        localStorage.setItem("distark_token", data.token)
 
         try {
           const userResponse = await fetch("https://orca.distark.com/api/v1/me.json", {
@@ -84,7 +84,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
 
             setUser(user)
-            localStorage.setItem("bugfixvibe_user", JSON.stringify(user))
+            localStorage.setItem("distark_user", JSON.stringify(user))
             return true
           }
         } catch (error) {
@@ -101,7 +101,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         setUser(fallbackUser)
-        localStorage.setItem("bugfixvibe_user", JSON.stringify(fallbackUser))
+        localStorage.setItem("distark_user", JSON.stringify(fallbackUser))
         return true
       }
 
@@ -116,12 +116,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = () => {
     setUser(null)
-    localStorage.removeItem("bugfixvibe_user")
-    localStorage.removeItem("bugfixvibe_token")
+    localStorage.removeItem("distark_user")
+    localStorage.removeItem("distark_token")
   }
 
   const getToken = () => {
-    return localStorage.getItem("bugfixvibe_token")
+    return localStorage.getItem("distark_token")
   }
 
   return <AuthContext.Provider value={{ user, login, logout, isLoading, getToken }}>{children}</AuthContext.Provider>

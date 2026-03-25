@@ -9,7 +9,7 @@ export async function authenticatedFetch(
   url: string,
   options: RequestInit = {}
 ): Promise<Response> {
-  const token = localStorage.getItem("bugfixvibe_token")
+  const token = localStorage.getItem("distark_token")
 
   const headers = {
     "Content-Type": "application/json",

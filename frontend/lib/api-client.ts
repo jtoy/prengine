@@ -97,7 +97,7 @@ export async function uploadFiles(files: File[]): Promise<{ url: string; filenam
     const response = await fetch(`${API_BASE}/upload`, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${localStorage.getItem('bugfixvibe_token')}`,
+        Authorization: `Bearer ${localStorage.getItem('distark_token')}`,
       },
       body: formData,
     })

@@ -31,7 +31,7 @@ export function FileUpload({ onFilesUploaded, existingFiles = [] }: FileUploadPr
       formData.append('file', file)
       const xhr = new XMLHttpRequest()
       xhr.open('POST', '/api/upload')
-      xhr.setRequestHeader('Authorization', `Bearer ${localStorage.getItem('bugfixvibe_token')}`)
+      xhr.setRequestHeader('Authorization', `Bearer ${localStorage.getItem('distark_token')}`)
       xhr.upload.onprogress = (e) => {
         if (e.lengthComputable) setUploadProgress(Math.round((e.loaded / e.total) * 100))
       }
