@@ -12,6 +12,10 @@ module Config
   LLM_MODEL        = ENV.fetch("LLM_MODEL", "gemma3")          # model name
   OLLAMA_URL       = ENV.fetch("OLLAMA_URL", "http://localhost:11434")
   GEMINI_API_KEY   = ENV.fetch("GEMINI_API_KEY", "")
+  DISTARK_TOKEN    = ENV.fetch("DISTARK_TOKEN", "")
+  DISTARK_URL      = ENV.fetch("DISTARK_URL", "https://orca.distark.com")
+  PROOF_BACKEND    = ENV.fetch("PROOF_BACKEND", "proofshot")  # proofshot | playwright (future)
+  PROOF_TIMEOUT    = ENV.fetch("PROOF_TIMEOUT", "600").to_i   # 10 minutes
   CACHE_DIR         = File.join(WORK_DIR, "cache")
   QUEUE_KEY        = "bugfixvibe:jobs"
   STATUS_CHANNEL   = "bugfixvibe:status"

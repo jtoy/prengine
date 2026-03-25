@@ -18,5 +18,7 @@ ENV["LLM_PROVIDER"] ||= "ollama"
 ENV["LLM_MODEL"] ||= "test-model"
 ENV["OLLAMA_URL"] ||= "http://localhost:11434"
 ENV["GEMINI_API_KEY"] ||= ""
+ENV["DISTARK_TOKEN"] ||= "test-distark-token"
+ENV["PROOF_BACKEND"] ||= "proofshot"
 
 require_relative "../config"

@@ -27,6 +27,10 @@ ssh studio "bash -lc '
   echo \"[deploy] Installing dependencies...\"
   bundle install --quiet 2>/dev/null
 
+  # Install proofshot for verification video recording
+  echo \"[deploy] Checking proofshot...\"
+  which proofshot >/dev/null 2>&1 || npm install -g proofshot
+
   # Kill existing worker (run_worker.sh loop will auto-restart it)
   PIDS=\$(pgrep -f \"ruby worker.rb\" || true)
   if [ -n \"\$PIDS\" ]; then

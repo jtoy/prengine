@@ -13,6 +13,8 @@ require_relative "llm_client"
 require_relative "report_enricher"
 require_relative "video_analyzer"
 require_relative "verification_generator"
+require_relative "proof_recorder"
+require_relative "media_uploader"
 require_relative "config"
 
 class JobProcessor
@@ -250,51 +252,40 @@ class JobProcessor
       log_step(job_id, 4, "Test output:\n#{test_result[:output]}")
     end
 
-    # Step 5: Verification screenshots
-    screenshot_paths = []
+    # Step 5: Verification proof (video + screenshots) — non-fatal
+    proof_urls = { video_urls: [], screenshot_urls: [] }
     git.workspace.each_repo_dir do |dir, name|
       next unless commits.key?(name)
-      verify_script = File.join(dir, ".bugfix", "verify.sh")
+      next unless VerificationGenerator.web_app?(dir)
 
-      # If no verify.sh exists, generate one via LLM (for web apps only)
-      unless File.exist?(verify_script)
-        if VerificationGenerator.web_app?(dir)
-          log_step(job_id, 5, "Generating verification scripts for #{name}...")
-          generated = VerificationGenerator.generate(dir, diff_text, prompt)
-          unless generated
-            log_step(job_id, 5, "Could not generate verification scripts for #{name}, skipping")
-            next
-          end
-        else
-          next
-        end
-      end
+      pkg_path = VerificationGenerator.find_package_json(dir)
+      next unless pkg_path
 
-      next unless File.exist?(verify_script)
+      pkg = JSON.parse(File.read(pkg_path)) rescue {}
+      scripts = pkg["scripts"] || {}
+      dev_cmd = scripts["dev"] ? "npm run dev" : "npm start"
+      port = VerificationGenerator.extract_port(scripts) || 3000
 
-      log_step(job_id, 5, "Running verification screenshots for #{name}...")
+      log_step(job_id, 5, "Recording proof for #{name}...")
       update_status(job_id, run_id, run_number, "testing", "verifying")
-      stdout, stderr, status = nil, nil, nil
-      Timeout.timeout(180) do
-        stdout, stderr, status = Open3.capture3("bash", verify_script, chdir: dir)
-      end
-      if status.success?
-        paths = stdout.strip.split("\n").select { |p| File.exist?(File.join(dir, p)) }
-        paths.each { |p| screenshot_paths << { repo: name, path: File.join(dir, p) } }
-        log_step(job_id, 5, "Verification done: #{paths.size} screenshot(s)")
 
-        # Amend commit to include screenshots
-        unless paths.empty?
-          _o, err, st = Open3.capture3("git", "-C", dir, "add", ".bugfix/")
-          raise "git add .bugfix/ failed: #{err}" unless st.success?
-          _o, err, st = Open3.capture3("git", "-C", dir, "commit", "--amend", "--no-edit")
-          raise "git commit --amend failed: #{err}" unless st.success?
-        end
-      else
-        log_step(job_id, 5, "Verification failed (non-fatal): #{stderr.to_s.lines.last&.strip}")
+      result = ProofRecorder.record(
+        repo_dir: dir, dev_cmd: dev_cmd, port: port,
+        timeout: Config::PROOF_TIMEOUT
+      )
+
+      if result[:video_path]
+        url = MediaUploader.upload(result[:video_path])
+        proof_urls[:video_urls] << url if url
       end
-    rescue Timeout::Error
-      log_step(job_id, 5, "Verification timed out for #{name} (non-fatal)")
+      result[:screenshot_paths].each do |path|
+        url = MediaUploader.upload(path)
+        proof_urls[:screenshot_urls] << url if url
+      end
+
+      log_step(job_id, 5, "Proof done: #{result[:success] ? 'success' : 'failed'}")
+    rescue => e
+      log_step(job_id, 5, "Proof recording failed (non-fatal): #{e.message}")
     end
 
     # Step 6: Push all changed repos
@@ -309,7 +300,7 @@ class JobProcessor
 
     diff = git.diff_summary
     pr_title = commit_msg.length > 72 ? commit_msg[0..71] : commit_msg
-    pr_body = generate_pr_body(diff_text, prompt, test_status, job_id, screenshot_paths, repo_names, git.branch_name, submitter_name, output_str)
+    pr_body = generate_pr_body(diff_text, prompt, test_status, job_id, proof_urls, submitter_name, output_str)
     log_step(job_id, 7, "PR title: #{pr_title}")
 
     pr_results = git.create_prs(title: pr_title, body: pr_body)
@@ -364,7 +355,7 @@ class JobProcessor
     msg
   end
 
-  def generate_pr_body(diff_text, prompt, test_status, job_id, screenshot_paths = [], repo_names = [], branch_name = nil, submitter_name = nil, agent_output = nil)
+  def generate_pr_body(diff_text, prompt, test_status, job_id, proof_urls = {}, submitter_name = nil, agent_output = nil)
     llm_prompt = <<~P
       You are writing a GitHub pull request description.
 
@@ -400,19 +391,17 @@ class JobProcessor
       body += "\n\n<details>\n<summary>Agent Output</summary>\n\n```\n#{trimmed}\n```\n\n</details>"
     end
 
-    # Append verification screenshots if any
-    if screenshot_paths.any? && branch_name
-      body += "\n\n## Verification Screenshots\n"
-      screenshot_paths.each do |s|
-        repo_short = s[:repo]
-        full_repo = repo_names.find { |r| r.split("/").last == repo_short }
-        next unless full_repo
-        # Relative path within the repo
-        repo_dir_prefix = File.join("", repo_short, "")
-        relative = s[:path].split(repo_dir_prefix).last
-        img_url = "https://raw.githubusercontent.com/#{full_repo}/#{branch_name}/#{relative}"
-        basename = File.basename(relative, ".*")
-        body += "![#{basename}](#{img_url})\n"
+    # Append verification video/screenshots if any
+    if proof_urls[:video_urls]&.any?
+      body += "\n\n## Verification\n"
+      proof_urls[:video_urls].each do |url|
+        body += "[Watch verification video](#{url})\n\n"
+      end
+    end
+    if proof_urls[:screenshot_urls]&.any?
+      body += "\n\n## Verification Screenshots\n" unless proof_urls[:video_urls]&.any?
+      proof_urls[:screenshot_urls].each_with_index do |url, i|
+        body += "![screenshot-#{i + 1}](#{url})\n"
       end
     end
 
