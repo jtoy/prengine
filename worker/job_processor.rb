@@ -261,6 +261,17 @@ class JobProcessor
     log_step(job_id, 4, "Tests finished — status=#{test_status}")
     if !test_result[:success] && !test_result[:skipped]
       log_step(job_id, 4, "Test output:\n#{test_result[:output]}")
+
+      # Analyze test failure artifacts (screenshots/videos) with LLM
+      test_artifacts = test_result[:artifacts] || []
+      if test_artifacts.any?
+        log_step(job_id, 4, "Analyzing #{test_artifacts.length} test failure artifact(s)...")
+        artifact_analysis = analyze_test_artifacts(test_artifacts)
+        if artifact_analysis
+          prompt = "#{prompt}\n\n## Test Failure Visual Analysis (from test screenshots/videos)\n#{artifact_analysis}"
+          log_step(job_id, 4, "Artifact analysis complete: #{artifact_analysis.length} chars")
+        end
+      end
     end
 
     # Step 5: Verification proof (video + screenshots) — non-fatal
@@ -424,6 +435,80 @@ class JobProcessor
     # Append original bug report for reviewer context
     body += "\n\n<details>\n<summary>Original Bug Report</summary>\n\n#{prompt}\n\n</details>"
     body
+  end
+
+  def analyze_test_artifacts(artifacts)
+    return nil if artifacts.empty?
+
+    # Convert local file paths to attachment format for VideoAnalyzer
+    # For local files, we use file:// URIs
+    media_artifacts = artifacts.select do |a|
+      mime = a[:mime_type] || ""
+      VideoAnalyzer.media_mime?(mime)
+    end
+
+    return nil if media_artifacts.empty?
+
+    results = media_artifacts.filter_map do |artifact|
+      analyze_local_artifact(artifact)
+    end
+
+    return nil if results.empty?
+    results.join("\n\n---\n\n")
+  rescue => e
+    puts "[JobProcessor] Error analyzing test artifacts: #{e.message}"
+    nil
+  end
+
+  def analyze_local_artifact(artifact)
+    return nil if Config::GEMINI_API_KEY.to_s.empty?
+
+    path = artifact[:path]
+    filename = artifact[:filename]
+    mime_type = artifact[:mime_type]
+
+    return nil unless path && File.exist?(path)
+
+    puts "[JobProcessor] Analyzing local artifact: #{filename} (#{mime_type})"
+
+    # For videos, convert if needed
+    upload_path = path
+    upload_mime = mime_type
+    if mime_type&.include?("webm")
+      upload_path, upload_mime = VideoAnalyzer.send(:convert_to_mp4, path, mime_type)
+    end
+
+    # Upload to Gemini
+    file_info = VideoAnalyzer.send(:upload_to_gemini, upload_path, upload_mime, filename)
+    return nil unless file_info
+
+    file_name = file_info["name"]
+    file_uri = file_info["uri"]
+
+    # Wait for processing
+    unless VideoAnalyzer.send(:wait_for_processing, file_name)
+      puts "[JobProcessor] Artifact processing timed out: #{filename}"
+      return nil
+    end
+
+    # Choose prompt based on media type
+    prompt = if VideoAnalyzer.image_mime?(mime_type)
+      VideoAnalyzer::IMAGE_ANALYSIS_PROMPT
+    else
+      VideoAnalyzer::VIDEO_ANALYSIS_PROMPT
+    end
+
+    analysis = VideoAnalyzer.send(:analyze_with_gemini, file_uri, upload_mime, prompt)
+    puts "[JobProcessor] Artifact analysis complete: #{filename} (#{analysis&.length || 0} chars)"
+    analysis
+  rescue => e
+    puts "[JobProcessor] Error analyzing artifact #{filename}: #{e.message}"
+    nil
+  ensure
+    VideoAnalyzer.send(:delete_from_gemini, file_name) if file_name
+    if upload_path && upload_path != path && File.exist?(upload_path)
+      File.delete(upload_path) rescue nil
+    end
   end
 
   def log_step(job_id, step, msg)
