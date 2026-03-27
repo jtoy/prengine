@@ -15,14 +15,20 @@ class RepoCache
     bare_path = bare_path_for(repo_name)
 
     if Dir.exist?(bare_path)
+      # Validate cache isn't corrupted (macOS /tmp cleanup can remove files but keep dirs)
+      _out, _err, st = Open3.capture3("git", "-C", bare_path, "rev-parse", "--is-bare-repository")
+      unless st.success?
+        puts "[RepoCache] Cache corrupted for #{repo_name}, re-cloning..."
+        FileUtils.rm_rf(bare_path)
+        bare_clone(repo_name, bare_path)
+        return bare_path
+      end
+
       puts "[RepoCache] Fetching updates for #{repo_name}..."
       _out, err, st = Open3.capture3("git", "-C", bare_path, "fetch", "origin", "+refs/heads/*:refs/heads/*", "--prune")
       raise "git fetch failed for #{repo_name}: #{err}" unless st.success?
     else
-      puts "[RepoCache] Bare-cloning #{repo_name}..."
-      url = authenticated_url(repo_name)
-      _out, err, st = Open3.capture3("git", "clone", "--bare", url, bare_path)
-      raise "git clone --bare failed for #{repo_name}: #{err}" unless st.success?
+      bare_clone(repo_name, bare_path)
     end
 
     bare_path
@@ -44,6 +50,13 @@ class RepoCache
   end
 
   private
+
+  def bare_clone(repo_name, bare_path)
+    puts "[RepoCache] Bare-cloning #{repo_name}..."
+    url = authenticated_url(repo_name)
+    _out, err, st = Open3.capture3("git", "clone", "--bare", url, bare_path)
+    raise "git clone --bare failed for #{repo_name}: #{err}" unless st.success?
+  end
 
   def bare_path_for(repo_name)
     # "jtoy/cartoon_maker" -> "jtoy_cartoon_maker.git"

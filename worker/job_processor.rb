@@ -161,7 +161,18 @@ class JobProcessor
       return [repo_url] if repo_url.include?("/") && !repo_url.include?("://")
     end
 
-    # 4. LLM-based routing from configured repos (new jobs only)
+    # 4. If job has source_project, match it to a configured repo
+    source_project = job["source_project"]
+    if source_project && !source_project.to_s.empty?
+      configured_repos = DB.get_enabled_repos
+      match = configured_repos.find { |r| r.split("/").last == source_project }
+      if match
+        puts "[JobProcessor] Using source_project repo: #{match}"
+        return [match]
+      end
+    end
+
+    # 5. LLM-based routing from configured repos (new jobs only)
     configured_repos = DB.get_enabled_repos
     if configured_repos.any?
       RepoRouter.route(job["title"], job["summary"], configured_repos)
