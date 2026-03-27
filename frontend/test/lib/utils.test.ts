@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { cn, authenticatedFetch } from '@/lib/utils'
+import { cn, authenticatedFetch, getRecordingMimeType } from '@/lib/utils'
 
 describe('cn', () => {
   it('merges class names', () => {
@@ -87,5 +87,61 @@ describe('authenticatedFetch', () => {
         'Content-Type': 'text/plain',
       },
     })
+  })
+})
+
+describe('getRecordingMimeType', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('returns webm with vp9 when supported', () => {
+    vi.stubGlobal('MediaRecorder', {
+      isTypeSupported: (type: string) => type === 'video/webm;codecs=vp9',
+    })
+
+    const result = getRecordingMimeType()
+    expect(result).toEqual({ mimeType: 'video/webm;codecs=vp9', extension: 'webm' })
+  })
+
+  it('returns plain webm when vp9 not supported but webm is', () => {
+    vi.stubGlobal('MediaRecorder', {
+      isTypeSupported: (type: string) => type === 'video/webm',
+    })
+
+    const result = getRecordingMimeType()
+    expect(result).toEqual({ mimeType: 'video/webm', extension: 'webm' })
+  })
+
+  it('returns mp4 when only mp4 is supported (Safari)', () => {
+    vi.stubGlobal('MediaRecorder', {
+      isTypeSupported: (type: string) => type === 'video/mp4',
+    })
+
+    const result = getRecordingMimeType()
+    expect(result).toEqual({ mimeType: 'video/mp4', extension: 'mp4' })
+  })
+
+  it('returns empty mimeType when nothing is supported', () => {
+    vi.stubGlobal('MediaRecorder', {
+      isTypeSupported: () => false,
+    })
+
+    const result = getRecordingMimeType()
+    expect(result).toEqual({ mimeType: '', extension: 'webm' })
+  })
+
+  it('returns webm fallback when MediaRecorder is undefined', () => {
+    const original = globalThis.MediaRecorder
+    // @ts-expect-error - intentionally removing MediaRecorder
+    delete globalThis.MediaRecorder
+
+    const result = getRecordingMimeType()
+    expect(result).toEqual({ mimeType: 'video/webm', extension: 'webm' })
+
+    // Restore
+    if (original) {
+      vi.stubGlobal('MediaRecorder', original)
+    }
   })
 })

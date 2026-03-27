@@ -4,6 +4,7 @@ import { useState, useRef, useCallback, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Upload, X, FileImage, FileVideo, FileText, Circle, Square } from "lucide-react"
 import type { Attachment } from "@/lib/db-types"
+import { getRecordingMimeType } from "@/lib/utils"
 
 interface EmbedFileUploadProps {
   token: string
@@ -79,8 +80,9 @@ export function EmbedFileUpload({ token, onFilesUploaded, existingFiles = [] }: 
     setUploadProgress(0)
     setUploadLabel("Screen recording")
     try {
-      const filename = `screen-recording-${Date.now()}.webm`
-      const file = new File([blob], filename, { type: "video/webm" })
+      const ext = blob.type.includes("mp4") ? "mp4" : "webm"
+      const filename = `screen-recording-${Date.now()}.${ext}`
+      const file = new File([blob], filename, { type: blob.type || "video/webm" })
       const attachment = await uploadWithProgress(file)
       if (attachment) {
         setFiles((prev) => {
@@ -108,11 +110,12 @@ export function EmbedFileUpload({ token, onFilesUploaded, existingFiles = [] }: 
       streamRef.current = stream
       chunksRef.current = []
 
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
-          ? "video/webm;codecs=vp9"
-          : "video/webm",
-      })
+      const { mimeType } = getRecordingMimeType()
+      const recorderOptions: MediaRecorderOptions = {}
+      if (mimeType) {
+        recorderOptions.mimeType = mimeType
+      }
+      const mediaRecorder = new MediaRecorder(stream, recorderOptions)
 
       mediaRecorder.ondataavailable = (e) => {
         if (e.data.size > 0) {
@@ -121,7 +124,8 @@ export function EmbedFileUpload({ token, onFilesUploaded, existingFiles = [] }: 
       }
 
       mediaRecorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: "video/webm" })
+        const actualMimeType = mediaRecorder.mimeType || mimeType || "video/webm"
+        const blob = new Blob(chunksRef.current, { type: actualMimeType })
         uploadBlob(blob)
         cleanup()
       }
