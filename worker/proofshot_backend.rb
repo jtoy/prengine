@@ -10,10 +10,15 @@ class ProofshotBackend
     FileUtils.mkdir_p(File.join(repo_dir, ".bugfix"))
 
     Timeout.timeout(timeout) do
+      # 0. Install deps if needed
+      if File.exist?(File.join(repo_dir, "package.json")) && !Dir.exist?(File.join(repo_dir, "node_modules"))
+        puts "[ProofshotBackend] Installing npm dependencies..."
+        run_cmd("npm install", chdir: repo_dir)
+      end
+
       # 1. Start proofshot (launches dev server + browser + recording)
-      run_with_port = "PORT=#{port} #{dev_cmd}"
       env = { "PORT" => port.to_s }
-      start_result = run_cmd("proofshot start --run #{Shellwords.escape(run_with_port)} --port #{port}", chdir: repo_dir, env: env)
+      start_result = run_cmd("proofshot start --run '#{dev_cmd}' --port #{port}", chdir: repo_dir, env: env)
       unless start_result[:status].success?
         puts "[ProofshotBackend] proofshot start failed, aborting proof recording"
         return { video_path: nil, screenshot_paths: [], success: false }
