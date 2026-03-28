@@ -132,8 +132,11 @@ ALTER TABLE jobs ADD COLUMN IF NOT EXISTS source_project VARCHAR(255);
 * support for our context to be loaded
 * where else can and should local llm like ollama be used to make the system work better, give ideas
 * store total input/output tokens so we can figure out how to reduce costs
-* zeroclaw skill support
 * vercel prs appear in db
 * verify prs for multiple projects if needed
 * smart way to do screenshot or video of the issue
 * only submit files that pi/llm actually touched
+* video/screenshot works
+* verified I can commmit via zeroclaw
+* tests work on distark 
+* tests work on cartoon_maker
