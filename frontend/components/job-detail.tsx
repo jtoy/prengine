@@ -77,7 +77,7 @@ export function JobDetail({ jobId }: { jobId: number }) {
         <div>
           <h1 className="text-2xl font-bold">{job.title}</h1>
           <p className="text-muted-foreground mt-1">
-            Job #{job.id}{job.created_by_name ? ` by ${job.created_by_name}` : ""}
+            Job #{job.id}{job.created_by_name ? ` by ${job.created_by_name}` : ""} • {job.mode === "review" ? "Review" : "Build"} mode
           </p>
         </div>
         <JobStatusBadge status={job.status} />

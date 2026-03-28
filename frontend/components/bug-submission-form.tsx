@@ -10,12 +10,13 @@ import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { FileUpload } from "./file-upload"
 import { createJob, fetchRepos } from "@/lib/api-client"
-import type { Attachment } from "@/lib/db-types"
+import type { Attachment, JobMode } from "@/lib/db-types"
 import { Bug, Send, Link } from "lucide-react"
 
 export function BugSubmissionForm() {
   const [title, setTitle] = useState("")
   const [summary, setSummary] = useState("")
+  const [mode, setMode] = useState<JobMode>("build")
   const [attachments, setAttachments] = useState<Attachment[]>([])
   const [selectedRepos, setSelectedRepos] = useState<string[]>([])
   const [availableRepos, setAvailableRepos] = useState<string[]>([])
@@ -63,6 +64,7 @@ export function BugSubmissionForm() {
       const job = await createJob({
         title: title.trim(),
         summary: summary.trim(),
+        mode,
         attachments: allAttachments,
         selected_repos: selectedRepos.length > 0 ? selectedRepos : undefined,
         enrich: enrich || undefined,
@@ -106,6 +108,30 @@ export function BugSubmissionForm() {
           </div>
 
           <div className="space-y-2">
+            <Label>Mode</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { value: "build" as const, label: "Build", description: "Try to implement a fix and open PRs" },
+                { value: "review" as const, label: "Review", description: "Read the repo first and respond with questions" },
+              ].map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setMode(option.value)}
+                  className={`rounded-lg border p-3 text-left transition ${
+                    mode === option.value
+                      ? "border-orange-600 bg-orange-50"
+                      : "border-border bg-background hover:border-orange-300"
+                  }`}
+                >
+                  <div className="font-medium">{option.label}</div>
+                  <div className="mt-1 text-xs text-muted-foreground">{option.description}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-2">
             <Label htmlFor="summary">Description</Label>
             <Textarea
               id="summary"
@@ -128,7 +154,7 @@ export function BugSubmissionForm() {
               <span className="text-sm font-medium">Enrich with AI</span>
             </label>
             <p className="text-xs text-muted-foreground ml-6">
-              Use AI to extract steps to reproduce, expected behavior, and affected components before processing
+              Use AI to extract steps to reproduce, expected behavior, and affected components before {mode === "review" ? "reviewing" : "processing"}
             </p>
           </div>
 

@@ -11,6 +11,7 @@ export interface Job {
   id: number
   title: string
   summary: string | null
+  mode: JobMode
   status: string
   created_by: number | null
   created_by_email: string | null
@@ -27,6 +28,8 @@ export interface Job {
   created_at: string
   updated_at: string
 }
+
+export type JobMode = 'build' | 'review'
 
 export interface JobRun {
   id: number
@@ -63,5 +66,5 @@ export interface JobLog {
   created_at: string
 }
 
-export type JobStatus = 'pending' | 'queued' | 'processing' | 'testing' | 'pr_submitted' | 'pr_merged' | 'failed'
+export type JobStatus = 'pending' | 'queued' | 'processing' | 'testing' | 'pr_submitted' | 'pr_merged' | 'completed' | 'failed'
 export type RunStatus = 'pending' | 'cloning' | 'running_agent' | 'running_tests' | 'pushing' | 'creating_pr' | 'starting_preview' | 'completed' | 'failed'

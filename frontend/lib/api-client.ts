@@ -18,6 +18,7 @@ export async function fetchJob(id: number): Promise<Job> {
 export async function createJob(data: {
   title: string
   summary: string
+  mode?: 'build' | 'review'
   attachments: { url: string; filename: string; mime_type: string }[]
   selected_repos?: string[]
   enrich?: boolean

@@ -198,4 +198,24 @@ class JobProcessorTest < Minitest::Test
     assert_includes result, "Summary"
     refute_includes result, "Agent Output"
   end
+
+  def test_normalize_mode_defaults_to_build
+    assert_equal "build", @processor.send(:normalize_mode, nil)
+    assert_equal "build", @processor.send(:normalize_mode, "other")
+  end
+
+  def test_normalize_mode_accepts_review
+    assert_equal "review", @processor.send(:normalize_mode, "review")
+  end
+
+  def test_build_agent_prompt_for_review_instructs_no_code_changes
+    result = @processor.send(:build_agent_prompt, "Button is broken", "review")
+    assert_includes result, "Do not edit files"
+    assert_includes result, "Key questions"
+    assert_includes result, "Button is broken"
+  end
+
+  def test_build_agent_prompt_for_build_returns_original_prompt
+    assert_equal "Fix the button", @processor.send(:build_agent_prompt, "Fix the button", "build")
+  end
 end

@@ -7,6 +7,7 @@ describe('db-types', () => {
       id: 1,
       title: 'Test bug',
       summary: 'Something broke',
+      mode: 'build',
       status: 'pending',
       created_by: 1,
       created_by_email: 'user@test.com',
@@ -55,8 +56,8 @@ describe('db-types', () => {
   })
 
   it('JobStatus type covers all statuses', () => {
-    const statuses: JobStatus[] = ['pending', 'queued', 'processing', 'testing', 'pr_submitted', 'pr_merged', 'failed']
-    expect(statuses).toHaveLength(7)
+    const statuses: JobStatus[] = ['pending', 'queued', 'processing', 'testing', 'pr_submitted', 'pr_merged', 'completed', 'failed']
+    expect(statuses).toHaveLength(8)
   })
 
   it('RunStatus type covers all statuses', () => {

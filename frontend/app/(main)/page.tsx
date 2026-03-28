@@ -23,7 +23,7 @@ export default function DashboardPage() {
 
   const pending = jobs.filter((j) => j.status === "pending" || j.status === "queued")
   const inProgress = jobs.filter((j) => ["processing", "testing"].includes(j.status))
-  const completed = jobs.filter((j) => ["pr_submitted", "pr_merged"].includes(j.status))
+  const completed = jobs.filter((j) => ["pr_submitted", "pr_merged", "completed"].includes(j.status))
   const failed = jobs.filter((j) => j.status === "failed")
   const merged = jobs.filter((j) => j.status === "pr_merged")
   const closed = jobs.filter((j) => j.status === "closed")

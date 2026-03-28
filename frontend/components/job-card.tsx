@@ -22,6 +22,9 @@ export function JobCard({ job }: { job: Job }) {
           {job.summary && (
             <p className="text-sm text-muted-foreground line-clamp-2 mb-3">{job.summary}</p>
           )}
+          <p className="text-xs text-muted-foreground mb-3">
+            {job.mode === "review" ? "Review" : "Build"} mode
+          </p>
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
             {job.created_by_name ? (
               <span>{job.created_by_name}</span>

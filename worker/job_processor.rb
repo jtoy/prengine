@@ -81,6 +81,8 @@ class JobProcessor
       end
     end
 
+    mode = normalize_mode(job["mode"])
+
     # Determine repos — multi-repo selection
     repo_names = select_repos(job, is_followup: type == "followup")
 
@@ -112,7 +114,7 @@ class JobProcessor
 
     begin
       submitter_name = job["created_by_name"] || job["created_by_email"] || "unknown"
-      execute_pipeline(job_id, run_id, run["run_number"].to_i, repo_names, prompt, submitter_name)
+      execute_pipeline(job_id, run_id, run["run_number"].to_i, repo_names, prompt, submitter_name, mode)
     rescue => e
       puts "[JobProcessor] Error: #{e.message}\n#{e.backtrace.first(5).join("\n")}"
       fail_job(job_id, run_id, e.message)
@@ -187,7 +189,7 @@ class JobProcessor
     JSON.parse(value) rescue nil
   end
 
-  def execute_pipeline(job_id, run_id, run_number, repo_names, prompt, submitter_name)
+  def execute_pipeline(job_id, run_id, run_number, repo_names, prompt, submitter_name, mode)
     started_at = Time.now.utc
     git = MultiRepoGitManager.new(repo_names, job_id, run_number)
     repo_dirs = repo_names.map { |r| r.split("/").last }
@@ -205,7 +207,7 @@ class JobProcessor
     FileUtils.mkdir_p(session_dir)
     session_path = File.join(session_dir, "job-#{job_id}.jsonl")
     agent = AgentRunner.new(git.work_path, repo_dirs: repo_dirs, repo_names: repo_names, session_path: session_path)
-    result = agent.run(prompt)
+    result = agent.run(build_agent_prompt(prompt, mode))
     log_step(job_id, 2, "Agent finished — success=#{result[:success]}, output=#{result[:output].to_s.length} chars")
 
     output_str = result[:output].to_s
@@ -220,6 +222,12 @@ class JobProcessor
     unless result[:success]
       fail_reason = result[:output].to_s
       fail_job(job_id, run_id, "Agent failed: #{fail_reason.length > 500 ? fail_reason[-500..] : fail_reason}")
+      return
+    end
+
+    if mode == "review"
+      complete_review(job_id, run_id, run_number, output_str)
+      git.cleanup
       return
     end
 
@@ -345,6 +353,47 @@ class JobProcessor
     log_step(job_id, 7, "Done! #{pr_results.size} PR(s): #{pr_results.map { |r| r[:url] }.join(', ')} (#{duration_s}s)")
 
     git.cleanup
+  end
+
+  def normalize_mode(value)
+    value.to_s == "review" ? "review" : "build"
+  end
+
+  def build_agent_prompt(prompt, mode)
+    return prompt unless mode == "review"
+
+    <<~PROMPT
+      Read the repository before responding.
+
+      Do not edit files.
+      Do not implement code.
+      Do not create commits or PR-ready changes.
+
+      Act like a senior reviewer. Ask the most important clarifying questions about architecture, constraints, edge cases, failure modes, trust boundaries, and success criteria for this request.
+
+      Organize the response into short sections:
+      1. What the repo appears to do
+      2. Key questions
+      3. Risks or assumptions to challenge
+
+      Request:
+      #{prompt}
+    PROMPT
+  end
+
+  def complete_review(job_id, run_id, run_number, output_str)
+    summary = output_str.length > 20_000 ? output_str[-20_000..] : output_str
+    DB.update_run(run_id, {
+      "diff_summary" => summary,
+      "status" => "completed",
+      "finished_at" => Time.now.utc.iso8601,
+    })
+    DB.update_job(job_id, {
+      "status" => "completed",
+      "diff_summary" => summary,
+    })
+    publish_update(job_id, run_id, run_number, "completed", "completed")
+    log_step(job_id, 3, "Review completed without code changes")
   end
 
   def generate_commit_message(diff_text, prompt)

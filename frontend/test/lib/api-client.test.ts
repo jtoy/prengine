@@ -66,6 +66,7 @@ describe('api-client', () => {
       const result = await createJob({
         title: 'New bug',
         summary: 'Something broke',
+        mode: 'review',
         attachments: [{ url: 'http://f.co/a.png', filename: 'a.png', mime_type: 'image/png' }],
         selected_repos: ['owner/repo'],
         enrich: true,
@@ -77,6 +78,7 @@ describe('api-client', () => {
         body: JSON.stringify({
           title: 'New bug',
           summary: 'Something broke',
+          mode: 'review',
           attachments: [{ url: 'http://f.co/a.png', filename: 'a.png', mime_type: 'image/png' }],
           selected_repos: ['owner/repo'],
           enrich: true,

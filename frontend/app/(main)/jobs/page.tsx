@@ -16,6 +16,7 @@ const STATUS_FILTERS = [
   { label: "Processing", value: "processing" },
   { label: "PR Submitted", value: "pr_submitted" },
   { label: "PR Merged", value: "pr_merged" },
+  { label: "Completed", value: "completed" },
   { label: "Failed", value: "failed" },
 ]
 

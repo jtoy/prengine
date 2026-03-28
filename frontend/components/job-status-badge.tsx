@@ -10,6 +10,7 @@ const statusConfig: Record<string, { label: string; className: string }> = {
   testing: { label: "Testing", className: "bg-purple-500 text-white border-purple-500" },
   pr_submitted: { label: "PR Submitted", className: "bg-green-500 text-white border-green-500" },
   pr_merged: { label: "PR Merged", className: "bg-emerald-600 text-white border-emerald-600" },
+  completed: { label: "Completed", className: "bg-green-600 text-white border-green-600" },
   failed: { label: "Failed", className: "bg-red-500 text-white border-red-500" },
   // Run statuses
   cloning: { label: "Cloning", className: "bg-blue-400 text-white border-blue-400" },
@@ -18,7 +19,6 @@ const statusConfig: Record<string, { label: string; className: string }> = {
   pushing: { label: "Pushing", className: "bg-indigo-500 text-white border-indigo-500" },
   creating_pr: { label: "Creating PR", className: "bg-teal-500 text-white border-teal-500" },
   starting_preview: { label: "Starting Preview", className: "bg-cyan-500 text-white border-cyan-500" },
-  completed: { label: "Completed", className: "bg-green-600 text-white border-green-600" },
 }
 
 export function JobStatusBadge({ status }: { status: string }) {
