@@ -274,8 +274,13 @@ class JobProcessor
 
       pkg = JSON.parse(File.read(pkg_path)) rescue {}
       scripts = pkg["scripts"] || {}
-      dev_cmd = scripts["dev"] ? "npm run dev" : "npm start"
-      port = VerificationGenerator.extract_port(scripts) || 3000
+      dev_script = scripts["dev"].to_s
+      dev_cmd = if dev_script.empty? || dev_script.include?("tauri")
+        "npm start"
+      else
+        "npm run dev"
+      end
+      port = VerificationGenerator.extract_port(scripts) || (3100 + rand(900))
 
       # Use configured app_dir, or the directory containing package.json
       full_repo_name = repo_names.find { |r| r.end_with?("/#{name}") } || name
