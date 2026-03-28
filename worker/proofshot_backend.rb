@@ -11,8 +11,9 @@ class ProofshotBackend
 
     Timeout.timeout(timeout) do
       # 1. Start proofshot (launches dev server + browser + recording)
+      run_with_port = "PORT=#{port} #{dev_cmd}"
       env = { "PORT" => port.to_s }
-      start_result = run_cmd("proofshot start --run #{Shellwords.escape(dev_cmd)} --port #{port}", chdir: repo_dir, env: env)
+      start_result = run_cmd("proofshot start --run #{Shellwords.escape(run_with_port)} --port #{port}", chdir: repo_dir, env: env)
       unless start_result[:status].success?
         puts "[ProofshotBackend] proofshot start failed, aborting proof recording"
         return { video_path: nil, screenshot_paths: [], success: false }
