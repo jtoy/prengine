@@ -98,4 +98,10 @@ module DB
       h[r["name"]] = r["description"] unless r["description"].to_s.empty?
     end
   end
+
+  def self.get_repo_app_dir(repo_name)
+    result = query("SELECT app_dir FROM repositories WHERE name = $1 AND enabled = true", [repo_name])
+    dir = result.ntuples > 0 ? result[0]["app_dir"].to_s : ""
+    dir.empty? ? nil : dir
+  end
 end

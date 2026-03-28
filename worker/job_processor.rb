@@ -277,11 +277,16 @@ class JobProcessor
       dev_cmd = scripts["dev"] ? "npm run dev" : "npm start"
       port = VerificationGenerator.extract_port(scripts) || 3000
 
-      log_step(job_id, 5, "Recording proof for #{name}...")
+      # Use configured app_dir, or the directory containing package.json
+      full_repo_name = repo_names.find { |r| r.end_with?("/#{name}") } || name
+      app_dir = DB.get_repo_app_dir(full_repo_name)
+      proof_dir = app_dir ? File.join(dir, app_dir) : File.dirname(pkg_path)
+
+      log_step(job_id, 5, "Recording proof for #{name} (dir: #{File.basename(proof_dir)})...")
       update_status(job_id, run_id, run_number, "testing", "verifying")
 
       result = ProofRecorder.record(
-        repo_dir: dir, dev_cmd: dev_cmd, port: port,
+        repo_dir: proof_dir, dev_cmd: dev_cmd, port: port,
         timeout: Config::PROOF_TIMEOUT
       )
 

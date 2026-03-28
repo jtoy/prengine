@@ -12,7 +12,11 @@ class ProofshotBackend
     Timeout.timeout(timeout) do
       # 1. Start proofshot (launches dev server + browser + recording)
       env = { "PORT" => port.to_s }
-      run_cmd("proofshot start --run #{Shellwords.escape(dev_cmd)} --port #{port}", chdir: repo_dir, env: env)
+      start_result = run_cmd("proofshot start --run #{Shellwords.escape(dev_cmd)} --port #{port}", chdir: repo_dir, env: env)
+      unless start_result[:status].success?
+        puts "[ProofshotBackend] proofshot start failed, aborting proof recording"
+        return { video_path: nil, screenshot_paths: [], success: false }
+      end
       sleep 3 # let page render for video content
 
       # 2. Take screenshot
@@ -30,7 +34,8 @@ class ProofshotBackend
     # 5. Collect screenshot paths
     screenshots = Dir.glob(File.join(artifact_dir, "step-*.png"))
 
-    { video_path: mp4_path, screenshot_paths: screenshots, success: true }
+    has_artifacts = mp4_path || screenshots.any?
+    { video_path: mp4_path, screenshot_paths: screenshots, success: has_artifacts }
   rescue Timeout::Error
     puts "[ProofshotBackend] Timeout after #{timeout}s"
     cleanup_proofshot(repo_dir)
