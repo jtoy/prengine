@@ -5,6 +5,7 @@
 cd "$(dirname "$0")"
 source ~/.bash_profile 2>/dev/null  # load asdf shims
 eval "$(/opt/homebrew/bin/brew shellenv)" 2>/dev/null  # homebrew PATH (ffmpeg, etc.)
+export PATH="$HOME/.asdf/shims:$HOME/.asdf/bin:/opt/homebrew/bin:$PATH"
 
 while true; do
   echo "[$(date)] Starting worker..."
