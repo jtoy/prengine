@@ -36,11 +36,11 @@ class ProofshotBackend
         return { video_path: nil, screenshot_paths: [], success: false }
       end
       puts "[ProofshotBackend] Port #{port} is up"
-      sleep 5 # let page render for video content
+      sleep 15 # let proofshot finish browser setup + recording retries
 
       # 3. Take screenshot
       run_cmd("proofshot exec screenshot", chdir: repo_dir)
-      sleep 2
+      sleep 3
 
       # 4. Stop (generates artifacts)
       stop_result = run_cmd("proofshot stop", chdir: repo_dir)
