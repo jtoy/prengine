@@ -7,7 +7,7 @@ require "socket"
 class ProofshotBackend
   # Returns { video_path: String|nil, screenshot_paths: [String], success: bool }
   def record(repo_dir:, dev_cmd:, port:, timeout: 600)
-    artifact_dir = File.join(repo_dir, ".bugfix", "proofshot-artifacts")
+    artifact_dir = File.join(repo_dir, "proofshot-artifacts")
     FileUtils.mkdir_p(File.join(repo_dir, ".bugfix"))
 
     Timeout.timeout(timeout) do
@@ -54,12 +54,18 @@ class ProofshotBackend
       end
     end
 
-    # 5. Convert session.webm -> session.mp4 via ffmpeg
-    webm_path = File.join(artifact_dir, "session.webm")
-    mp4_path = File.exist?(webm_path) ? convert_to_mp4(webm_path) : nil
+    # 5. Find the session dir (proofshot creates timestamped subdirs)
+    session_dirs = Dir.glob(File.join(artifact_dir, "*")).select { |f| File.directory?(f) }.sort
+    session_dir = session_dirs.last || artifact_dir
+    puts "[ProofshotBackend] Session dir: #{session_dir}"
+    puts "[ProofshotBackend] Files: #{Dir.glob(File.join(session_dir, '*')).map { |f| File.basename(f) }.join(', ')}"
 
-    # 6. Collect screenshot paths
-    screenshots = Dir.glob(File.join(artifact_dir, "step-*.png"))
+    # 6. Convert session.webm -> session.mp4 via ffmpeg
+    webm_path = Dir.glob(File.join(session_dir, "*.webm")).first
+    mp4_path = webm_path && File.exist?(webm_path) ? convert_to_mp4(webm_path) : nil
+
+    # 7. Collect screenshot paths
+    screenshots = Dir.glob(File.join(session_dir, "*.png")) + Dir.glob(File.join(session_dir, "screenshots", "*.png"))
 
     has_artifacts = mp4_path || screenshots.any?
     puts "[ProofshotBackend] Artifacts: video=#{!mp4_path.nil?}, screenshots=#{screenshots.size}"
