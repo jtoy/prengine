@@ -56,7 +56,8 @@ class ProofshotBackend
 
   def run_cmd(cmd, chdir:, env: {})
     puts "[ProofshotBackend] Running: #{cmd} (in #{chdir})"
-    stdout, stderr, status = Open3.capture3(env, cmd, chdir: chdir)
+    full_env = env.merge("PATH" => "#{ENV['HOME']}/.asdf/shims:/opt/homebrew/bin:#{ENV['PATH']}")
+    stdout, stderr, status = Open3.capture3(full_env, cmd, chdir: chdir)
     unless status.success?
       puts "[ProofshotBackend] Command failed (exit #{status.exitstatus}): #{stderr.to_s.lines.last&.strip}"
     end
