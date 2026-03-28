@@ -20,10 +20,13 @@ class ProofshotBackend
       # 1. Start proofshot in background (it's a long-running foreground process)
       env = proof_env("PORT" => port.to_s)
       start_cmd = "proofshot start --run '#{dev_cmd}' --port #{port}"
+      proofshot_log = File.join(repo_dir, ".bugfix", "proofshot.log")
       puts "[ProofshotBackend] Starting: #{start_cmd} (in #{repo_dir})"
-      start_pid = spawn(env, start_cmd, chdir: repo_dir, out: "/dev/null", err: "/dev/null")
+      log_fd = File.open(proofshot_log, "w")
+      start_pid = spawn(env, start_cmd, chdir: repo_dir, out: log_fd, err: log_fd)
       Process.detach(start_pid)
-      puts "[ProofshotBackend] proofshot start spawned (pid: #{start_pid})"
+      log_fd.close
+      puts "[ProofshotBackend] proofshot start spawned (pid: #{start_pid}, log: #{proofshot_log})"
 
       # 2. Wait for dev server + browser to be ready
       puts "[ProofshotBackend] Waiting for port #{port}..."
@@ -40,7 +43,11 @@ class ProofshotBackend
       sleep 2
 
       # 4. Stop (generates artifacts)
-      run_cmd("proofshot stop", chdir: repo_dir)
+      stop_result = run_cmd("proofshot stop", chdir: repo_dir)
+      unless stop_result[:status].success?
+        log_content = File.read(proofshot_log) rescue "could not read"
+        puts "[ProofshotBackend] proofshot.log:\n#{log_content[0..2000]}"
+      end
     end
 
     # 5. Convert session.webm -> session.mp4 via ffmpeg
