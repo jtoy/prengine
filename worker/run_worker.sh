@@ -3,7 +3,8 @@
 # Usage: nohup bash run_worker.sh >> /tmp/bugfixvibe/worker.log 2>&1 &
 
 cd "$(dirname "$0")"
-source ~/.bashrc 2>/dev/null  # load asdf shims
+source ~/.bash_profile 2>/dev/null  # load asdf shims
+eval "$(/opt/homebrew/bin/brew shellenv)" 2>/dev/null  # homebrew PATH (ffmpeg, etc.)
 
 while true; do
   echo "[$(date)] Starting worker..."
