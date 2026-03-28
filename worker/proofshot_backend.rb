@@ -17,6 +17,10 @@ class ProofshotBackend
         run_cmd("npm install", chdir: repo_dir)
       end
 
+      # 0b. Clean stale proofshot state
+      run_cmd("proofshot clean", chdir: repo_dir)
+      run_cmd("agent-browser close --all", chdir: repo_dir)
+
       # 1. Start proofshot in background (it's a long-running foreground process)
       env = proof_env("PORT" => port.to_s)
       start_cmd = "proofshot start --run '#{dev_cmd}' --port #{port}"
