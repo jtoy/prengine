@@ -204,7 +204,7 @@ class JobProcessor
     session_dir = "/tmp/bugfixvibe/sessions"
     FileUtils.mkdir_p(session_dir)
     session_path = File.join(session_dir, "job-#{job_id}.jsonl")
-    agent = AgentRunner.new(git.work_path, repo_dirs: repo_dirs, session_path: session_path)
+    agent = AgentRunner.new(git.work_path, repo_dirs: repo_dirs, repo_names: repo_names, session_path: session_path)
     result = agent.run(prompt)
     log_step(job_id, 2, "Agent finished — success=#{result[:success]}, output=#{result[:output].to_s.length} chars")
 

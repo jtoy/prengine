@@ -8,10 +8,12 @@ class AgentRunner
 
   # work_path: directory to run agent from
   # repo_dirs: optional array of repo short names (for multi-repo prompt)
+  # repo_names: optional array of full repo names (owner/name)
   # session_path: optional path to JSONL session file for pi persistence
-  def initialize(work_path, repo_dirs: nil, session_path: nil)
+  def initialize(work_path, repo_dirs: nil, repo_names: nil, session_path: nil)
     @work_path = work_path
     @repo_dirs = repo_dirs
+    @repo_names = repo_names
     @session_path = session_path
   end
 
@@ -32,6 +34,7 @@ class AgentRunner
 
     env = {}
     env["ANTHROPIC_API_KEY"] = ENV["ANTHROPIC_API_KEY"] if ENV["ANTHROPIC_API_KEY"]
+    env["LIVE_TEST_DB"] = ENV["LIVE_TEST_DB"] if distark_repo? && ENV["LIVE_TEST_DB"]
 
     stdout, stderr, status = Open3.capture3(
       env, "bash", "-lc", shell_cmd
@@ -68,14 +71,27 @@ class AgentRunner
       ""
     end
 
+    db_hint = if distark_repo?
+      <<~HINT
+        If you need Distark application data while working, the `LIVE_TEST_DB` environment variable is available
+        and points to the daily copied Distark database. You can use it for direct database inspection when useful.
+      HINT
+    else
+      ""
+    end
+
     <<~PROMPT
       You are fixing a bug in a codebase. Here is the bug report:
 
       #{user_prompt}
 
-      #{workspace_hint}Fix the bug by modifying the necessary files. Make minimal, focused changes.
+      #{workspace_hint}#{db_hint}Fix the bug by modifying the necessary files. Make minimal, focused changes.
       If applicable, add unit and e2e tests red/green TDD style.
       Run any existing tests to verify your fix works.
     PROMPT
+  end
+
+  def distark_repo?
+    Array(@repo_names).include?("distark/orchestrator") || Array(@repo_dirs).include?("orchestrator")
   end
 end
