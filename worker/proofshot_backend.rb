@@ -42,9 +42,13 @@ class ProofshotBackend
       puts "[ProofshotBackend] Port #{port} is up"
       sleep 15 # let proofshot finish browser setup + recording retries
 
-      # 3. Take screenshot
-      run_cmd("proofshot exec screenshot", chdir: repo_dir)
-      sleep 3
+      # 3. Take screenshots via agent-browser directly
+      screenshot_dir = File.join(repo_dir, ".bugfix", "screenshots")
+      FileUtils.mkdir_p(screenshot_dir)
+      run_cmd("agent-browser screenshot #{File.join(screenshot_dir, 'full-page.png')} --full", chdir: repo_dir)
+      sleep 1
+      run_cmd("agent-browser screenshot #{File.join(screenshot_dir, 'viewport.png')}", chdir: repo_dir)
+      sleep 2
 
       # 4. Stop (generates artifacts)
       stop_result = run_cmd("proofshot stop", chdir: repo_dir)
@@ -65,7 +69,9 @@ class ProofshotBackend
     mp4_path = webm_path && File.exist?(webm_path) ? convert_to_mp4(webm_path) : nil
 
     # 7. Collect screenshot paths
-    screenshots = Dir.glob(File.join(session_dir, "*.png")) + Dir.glob(File.join(session_dir, "screenshots", "*.png"))
+    screenshots = Dir.glob(File.join(session_dir, "*.png")) +
+                  Dir.glob(File.join(session_dir, "screenshots", "*.png")) +
+                  Dir.glob(File.join(repo_dir, ".bugfix", "screenshots", "*.png"))
 
     has_artifacts = mp4_path || screenshots.any?
     puts "[ProofshotBackend] Artifacts: video=#{!mp4_path.nil?}, screenshots=#{screenshots.size}"
