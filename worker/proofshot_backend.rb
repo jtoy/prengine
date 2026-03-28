@@ -56,9 +56,10 @@ class ProofshotBackend
 
   def run_cmd(cmd, chdir:, env: {})
     puts "[ProofshotBackend] Running: #{cmd} (in #{chdir})"
-    path = "#{ENV['HOME']}/bin:#{ENV['HOME']}/.asdf/shims:/opt/homebrew/bin:#{ENV['PATH']}"
-    full_env = env.merge("PATH" => path)
-    puts "[ProofshotBackend] PATH prefix: #{path.split(':').first(3).join(':')}"
+    home = ENV['HOME'] || "/Users/jtoy"
+    path = "#{home}/bin:#{home}/.asdf/shims:#{home}/.asdf/installs/nodejs/22.22.0/bin:/opt/homebrew/bin:#{ENV['PATH']}"
+    full_env = env.merge("PATH" => path, "HOME" => home)
+    puts "[ProofshotBackend] PATH prefix: #{path.split(':').first(4).join(':')}"
     stdout, stderr, status = Open3.capture3(full_env, cmd, chdir: chdir)
     unless status.success?
       puts "[ProofshotBackend] Command failed (exit #{status.exitstatus}): #{stderr.to_s.lines.last&.strip}"
