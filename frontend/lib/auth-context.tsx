@@ -78,7 +78,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               id: userData.id,
               email: userData.email || email,
               name: userData.name || userData.email?.split("@")[0] || "User",
-              role: userData.role || "user",
+              role: Array.isArray(userData.roles) && userData.roles.includes("admin") ? "admin" : (userData.role || "user"),
               created_at: userData.created_at || new Date().toISOString(),
               updated_at: userData.updated_at || new Date().toISOString(),
             }
