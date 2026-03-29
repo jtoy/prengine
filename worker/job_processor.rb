@@ -294,13 +294,14 @@ class JobProcessor
       full_repo_name = repo_names.find { |r| r.end_with?("/#{name}") } || name
       app_dir = DB.get_repo_app_dir(full_repo_name)
       proof_dir = app_dir ? File.join(dir, app_dir) : File.dirname(pkg_path)
+      repo_env = DB.get_repo_env_vars(full_repo_name)
 
       log_step(job_id, 5, "Recording proof for #{name} (dir: #{File.basename(proof_dir)})...")
       update_status(job_id, run_id, run_number, "testing", "verifying")
 
       result = ProofRecorder.record(
         repo_dir: proof_dir, dev_cmd: dev_cmd, port: port,
-        timeout: Config::PROOF_TIMEOUT
+        env_vars: repo_env, timeout: Config::PROOF_TIMEOUT
       )
 
       if result[:video_path]

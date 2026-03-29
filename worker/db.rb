@@ -104,4 +104,10 @@ module DB
     dir = result.ntuples > 0 ? result[0]["app_dir"].to_s : ""
     dir.empty? ? nil : dir
   end
+
+  def self.get_repo_env_vars(repo_name)
+    result = query("SELECT env_vars FROM repositories WHERE name = $1 AND enabled = true", [repo_name])
+    return {} unless result.ntuples > 0
+    JSON.parse(result[0]["env_vars"] || "{}") rescue {}
+  end
 end

@@ -6,7 +6,8 @@ require "socket"
 
 class ProofshotBackend
   # Returns { video_path: String|nil, screenshot_paths: [String], success: bool }
-  def record(repo_dir:, dev_cmd:, port:, timeout: 600)
+  def record(repo_dir:, dev_cmd:, port:, env_vars: {}, timeout: 600)
+    @env_vars = env_vars
     artifact_dir = File.join(repo_dir, "proofshot-artifacts")
     FileUtils.mkdir_p(File.join(repo_dir, ".bugfix"))
 
@@ -21,14 +22,16 @@ class ProofshotBackend
       run_cmd("proofshot clean", chdir: repo_dir)
       run_cmd("agent-browser close --all", chdir: repo_dir)
 
-      # 0c. Write .env for dev server if not present
-      env_path = File.join(repo_dir, ".env")
-      unless File.exist?(env_path)
-        File.write(env_path, "REACT_APP_SKIP_AUTH=true\n")
+      # 0c. Write .env for dev server from repo config
+      if env_vars.any?
+        env_path = File.join(repo_dir, ".env")
+        env_content = env_vars.map { |k, v| "#{k}=#{v}" }.join("\n") + "\n"
+        File.write(env_path, env_content)
+        puts "[ProofshotBackend] Wrote .env: #{env_vars.keys.join(', ')}"
       end
 
       # 1. Start proofshot in background (it's a long-running foreground process)
-      env = proof_env("PORT" => port.to_s, "REACT_APP_SKIP_AUTH" => "true")
+      env = proof_env(env_vars.merge("PORT" => port.to_s))
       start_cmd = "proofshot start --run '#{dev_cmd}' --port #{port}"
       proofshot_log = File.join(repo_dir, ".bugfix", "proofshot.log")
       puts "[ProofshotBackend] Starting: #{start_cmd} (in #{repo_dir})"
