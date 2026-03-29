@@ -12,18 +12,23 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
-import { Bug, LayoutDashboard, List, Plus, Menu, LogOut, User, FileText } from "lucide-react"
+import { Bug, LayoutDashboard, List, Plus, Menu, LogOut, User, FileText, Database } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 
 const navigationItems = [
-  { name: "Dashboard", href: "/", icon: LayoutDashboard },
-  { name: "Jobs", href: "/jobs", icon: List },
-  { name: "Logs", href: "/admin/logs", icon: FileText },
+  { name: "Dashboard", href: "/", icon: LayoutDashboard, adminOnly: false },
+  { name: "Jobs", href: "/jobs", icon: List, adminOnly: false },
+  { name: "Repos", href: "/admin/repos", icon: Database, adminOnly: true },
+  { name: "Logs", href: "/admin/logs", icon: FileText, adminOnly: false },
 ]
 
 export function Navigation() {
   const pathname = usePathname()
   const { user, logout } = useAuth()
+
+  const visibleItems = navigationItems.filter(
+    (item) => !item.adminOnly || user?.role === "admin"
+  )
 
   return (
     <header className="border-b bg-background">
@@ -43,7 +48,7 @@ export function Navigation() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-40">
-              {navigationItems.map((item) => {
+              {visibleItems.map((item) => {
                 const Icon = item.icon
                 return (
                   <DropdownMenuItem key={item.name} asChild>
@@ -59,7 +64,7 @@ export function Navigation() {
         </div>
 
         <nav className="hidden md:flex items-center gap-1">
-          {navigationItems.map((item) => {
+          {visibleItems.map((item) => {
             const Icon = item.icon
             const isActive = pathname === item.href
 

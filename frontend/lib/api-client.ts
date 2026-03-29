@@ -1,4 +1,4 @@
-import type { Job, JobRun, JobLog } from './db-types'
+import type { Job, JobRun, JobLog, Repository } from './db-types'
 import { authenticatedFetch } from './utils'
 
 const API_BASE = '/api'
@@ -87,6 +87,54 @@ export async function fetchLogs(params?: {
   const response = await authenticatedFetch(url)
   if (!response.ok) throw new Error('Failed to fetch logs')
   return response.json()
+}
+
+export async function fetchAdminRepos(): Promise<Repository[]> {
+  const response = await authenticatedFetch(`${API_BASE}/admin/repos`)
+  if (!response.ok) throw new Error('Failed to fetch repositories')
+  return response.json()
+}
+
+export async function createRepo(data: {
+  name: string
+  base_branch?: string
+  description?: string
+  enabled?: boolean
+  app_dir?: string
+  env_vars?: Record<string, string>
+}): Promise<Repository> {
+  const response = await authenticatedFetch(`${API_BASE}/admin/repos`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}))
+    throw new Error(err.error || 'Failed to create repository')
+  }
+  return response.json()
+}
+
+export async function updateRepo(id: number, data: Partial<Omit<Repository, 'id' | 'created_at' | 'updated_at'>>): Promise<Repository> {
+  const response = await authenticatedFetch(`${API_BASE}/admin/repos`, {
+    method: 'PATCH',
+    body: JSON.stringify({ id, ...data }),
+  })
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}))
+    throw new Error(err.error || 'Failed to update repository')
+  }
+  return response.json()
+}
+
+export async function deleteRepo(id: number): Promise<void> {
+  const response = await authenticatedFetch(`${API_BASE}/admin/repos`, {
+    method: 'DELETE',
+    body: JSON.stringify({ id }),
+  })
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}))
+    throw new Error(err.error || 'Failed to delete repository')
+  }
 }
 
 export async function uploadFiles(files: File[]): Promise<{ url: string; filename: string; mime_type: string; size: number }[]> {

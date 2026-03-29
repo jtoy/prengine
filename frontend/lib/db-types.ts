@@ -68,3 +68,15 @@ export interface JobLog {
 
 export type JobStatus = 'pending' | 'queued' | 'processing' | 'testing' | 'pr_submitted' | 'pr_merged' | 'completed' | 'failed'
 export type RunStatus = 'pending' | 'cloning' | 'running_agent' | 'running_tests' | 'pushing' | 'creating_pr' | 'starting_preview' | 'completed' | 'failed'
+
+export interface Repository {
+  id: number
+  name: string
+  base_branch: string
+  description: string | null
+  enabled: boolean
+  app_dir: string
+  env_vars: Record<string, string>
+  created_at: string
+  updated_at: string
+}
