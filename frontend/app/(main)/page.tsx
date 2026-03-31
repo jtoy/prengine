@@ -13,6 +13,7 @@ import { Bug, Plus, Clock, CheckCircle, AlertCircle, Loader, GitMerge, XCircle, 
 export default function DashboardPage() {
   const [jobs, setJobs] = useState<Job[]>([])
   const [loading, setLoading] = useState(true)
+  const [statusFilter, setStatusFilter] = useState<string | null>(null)
 
   useEffect(() => {
     fetchJobs()
@@ -28,6 +29,23 @@ export default function DashboardPage() {
   const merged = jobs.filter((j) => j.status === "pr_merged")
   const closed = jobs.filter((j) => j.status === "closed")
   const mergeRate = jobs.length > 0 ? Math.round((merged.length / jobs.length) * 100) : 0
+
+  const toggleFilter = (key: string) => {
+    setStatusFilter((prev) => (prev === key ? null : key))
+  }
+
+  const filterMap: Record<string, Job[]> = {
+    pending,
+    inProgress,
+    completed,
+    failed,
+    merged,
+    closed,
+  }
+
+  const displayedJobs = statusFilter && filterMap[statusFilter]
+    ? filterMap[statusFilter]
+    : jobs
 
   // Weekly stats for trend (last 8 weeks)
   const weeklyStats = (() => {
@@ -64,84 +82,32 @@ export default function DashboardPage() {
           <>
             {/* Metrics */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4">
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-gray-100 rounded-lg">
-                      <Clock className="w-5 h-5 text-gray-600" />
+              {([
+                { key: "pending", label: "Pending", count: pending.length, icon: Clock, bg: "bg-gray-100", text: "text-gray-600", ring: "ring-gray-400" },
+                { key: "inProgress", label: "In Progress", count: inProgress.length, icon: Loader, bg: "bg-yellow-100", text: "text-yellow-600", ring: "ring-yellow-400" },
+                { key: "completed", label: "Completed", count: completed.length, icon: CheckCircle, bg: "bg-green-100", text: "text-green-600", ring: "ring-green-400" },
+                { key: "failed", label: "Failed", count: failed.length, icon: AlertCircle, bg: "bg-red-100", text: "text-red-600", ring: "ring-red-400" },
+                { key: "merged", label: "Merged", count: merged.length, icon: GitMerge, bg: "bg-purple-100", text: "text-purple-600", ring: "ring-purple-400" },
+                { key: "closed", label: "Closed", count: closed.length, icon: XCircle, bg: "bg-orange-100", text: "text-orange-600", ring: "ring-orange-400" },
+              ] as const).map(({ key, label, count, icon: Icon, bg, text, ring }) => (
+                <Card
+                  key={key}
+                  className={`cursor-pointer transition-all hover:shadow-md ${statusFilter === key ? `ring-2 ${ring}` : ""}`}
+                  onClick={() => toggleFilter(key)}
+                >
+                  <CardContent className="pt-6">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 ${bg} rounded-lg`}>
+                        <Icon className={`w-5 h-5 ${text}`} />
+                      </div>
+                      <div>
+                        <p className="text-2xl font-bold">{count}</p>
+                        <p className="text-sm text-muted-foreground">{label}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-2xl font-bold">{pending.length}</p>
-                      <p className="text-sm text-muted-foreground">Pending</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-yellow-100 rounded-lg">
-                      <Loader className="w-5 h-5 text-yellow-600" />
-                    </div>
-                    <div>
-                      <p className="text-2xl font-bold">{inProgress.length}</p>
-                      <p className="text-sm text-muted-foreground">In Progress</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-green-100 rounded-lg">
-                      <CheckCircle className="w-5 h-5 text-green-600" />
-                    </div>
-                    <div>
-                      <p className="text-2xl font-bold">{completed.length}</p>
-                      <p className="text-sm text-muted-foreground">Completed</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-red-100 rounded-lg">
-                      <AlertCircle className="w-5 h-5 text-red-600" />
-                    </div>
-                    <div>
-                      <p className="text-2xl font-bold">{failed.length}</p>
-                      <p className="text-sm text-muted-foreground">Failed</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-purple-100 rounded-lg">
-                      <GitMerge className="w-5 h-5 text-purple-600" />
-                    </div>
-                    <div>
-                      <p className="text-2xl font-bold">{merged.length}</p>
-                      <p className="text-sm text-muted-foreground">Merged</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardContent className="pt-6">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-orange-100 rounded-lg">
-                      <XCircle className="w-5 h-5 text-orange-600" />
-                    </div>
-                    <div>
-                      <p className="text-2xl font-bold">{closed.length}</p>
-                      <p className="text-sm text-muted-foreground">Closed</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              ))}
               <Card>
                 <CardContent className="pt-6">
                   <div className="flex items-center gap-3">
@@ -197,25 +163,47 @@ export default function DashboardPage() {
             {/* Recent Jobs */}
             <div>
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold">Recent Bug Reports</h2>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg font-semibold">
+                    {statusFilter ? `${({ pending: "Pending", inProgress: "In Progress", completed: "Completed", failed: "Failed", merged: "Merged", closed: "Closed" } as Record<string, string>)[statusFilter]} Bug Reports` : "Recent Bug Reports"}
+                  </h2>
+                  {statusFilter && (
+                    <button
+                      onClick={() => setStatusFilter(null)}
+                      className="text-xs text-muted-foreground hover:text-foreground px-2 py-0.5 rounded-full border"
+                    >
+                      Clear filter
+                    </button>
+                  )}
+                </div>
                 <Link href="/jobs" className="text-sm text-blue-600 hover:underline">
                   View all
                 </Link>
               </div>
-              {jobs.length === 0 ? (
+              {displayedJobs.length === 0 ? (
                 <Card>
                   <CardContent className="py-12 text-center">
                     <Bug className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-                    <h3 className="font-semibold mb-1">No bug reports yet</h3>
-                    <p className="text-sm text-muted-foreground mb-4">Submit your first bug report to get started</p>
-                    <Link href="/submit">
-                      <Button>Report a Bug</Button>
-                    </Link>
+                    {statusFilter ? (
+                      <>
+                        <h3 className="font-semibold mb-1">No matching bug reports</h3>
+                        <p className="text-sm text-muted-foreground mb-4">No bug reports with this status</p>
+                        <Button variant="outline" onClick={() => setStatusFilter(null)}>Clear filter</Button>
+                      </>
+                    ) : (
+                      <>
+                        <h3 className="font-semibold mb-1">No bug reports yet</h3>
+                        <p className="text-sm text-muted-foreground mb-4">Submit your first bug report to get started</p>
+                        <Link href="/submit">
+                          <Button>Report a Bug</Button>
+                        </Link>
+                      </>
+                    )}
                   </CardContent>
                 </Card>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {jobs.slice(0, 6).map((job) => (
+                  {displayedJobs.slice(0, 6).map((job) => (
                     <JobCard key={job.id} job={job} />
                   ))}
                 </div>
