@@ -110,6 +110,9 @@ class ProofshotBackend
     diff_excerpt = diff_text.to_s[0, 2000]
     puts "[ProofshotBackend] Starting AI interactions (max #{MAX_AI_STEPS} steps)"
 
+    last_command = nil
+    repeat_count = 0
+
     MAX_AI_STEPS.times do |i|
       # 1. Get page snapshot with interactive element refs
       snap_result = run_cmd("proofshot exec snapshot -i", chdir: repo_dir)
@@ -145,6 +148,7 @@ class ProofshotBackend
           DONE                — finished demonstrating
 
         Use @eN refs from the snapshot. Focus on demonstrating the fix works.
+        Try different interactions — don't repeat the same action.
         Return ONLY the command line, no explanation.
       LLM
 
@@ -158,14 +162,26 @@ class ProofshotBackend
         break
       end
 
-      # 4. Validate command starts with a known verb
+      # 4. Detect repetition — break if same command 3 times in a row
+      if command == last_command
+        repeat_count += 1
+        if repeat_count >= 2
+          puts "[ProofshotBackend] AI step #{i + 1}: repeated '#{command}' 3 times, stopping"
+          break
+        end
+      else
+        repeat_count = 0
+      end
+      last_command = command
+
+      # 5. Validate command starts with a known verb
       verb = command.split(/\s+/).first.downcase
       unless VALID_COMMANDS.include?(verb)
         puts "[ProofshotBackend] AI step #{i + 1}: invalid command verb '#{verb}', skipping"
         next
       end
 
-      # 5. Execute via proofshot exec (logged in session-log.json)
+      # 6. Execute via proofshot exec (logged in session-log.json)
       run_cmd("proofshot exec #{command}", chdir: repo_dir)
       sleep 2 # let page settle
     rescue => e
