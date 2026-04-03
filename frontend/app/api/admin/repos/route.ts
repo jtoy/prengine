@@ -34,15 +34,15 @@ export async function POST(request: NextRequest) {
     if ("error" in auth) return auth.error
 
     const body = await request.json()
-    const { name, base_branch, description, enabled, app_dir, env_vars } = body
+    const { name, base_branch, description, enabled, app_dir, env_vars, context } = body
 
     if (!name || typeof name !== "string" || name.trim() === "") {
       return NextResponse.json({ error: "Name is required" }, { status: 400 })
     }
 
     const result = await query(
-      `INSERT INTO repositories (name, base_branch, description, enabled, app_dir, env_vars)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO repositories (name, base_branch, description, enabled, app_dir, env_vars, context)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
       [
         name.trim(),
@@ -51,6 +51,7 @@ export async function POST(request: NextRequest) {
         enabled ?? true,
         app_dir || "",
         JSON.stringify(env_vars || {}),
+        context ?? "",
       ]
     )
 
@@ -77,7 +78,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "ID is required" }, { status: 400 })
     }
 
-    const allowedFields = ["name", "base_branch", "description", "enabled", "app_dir", "env_vars"]
+    const allowedFields = ["name", "base_branch", "description", "enabled", "app_dir", "env_vars", "context"]
     const setClauses: string[] = []
     const params: any[] = []
     let paramIndex = 1

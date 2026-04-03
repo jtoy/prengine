@@ -77,6 +77,7 @@ export interface Repository {
   enabled: boolean
   app_dir: string
   env_vars: Record<string, string>
+  context: string
   created_at: string
   updated_at: string
 }

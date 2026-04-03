@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -32,6 +33,7 @@ interface RepoFormData {
   enabled: boolean
   app_dir: string
   env_vars: EnvVar[]
+  context: string
 }
 
 const emptyForm: RepoFormData = {
@@ -41,6 +43,7 @@ const emptyForm: RepoFormData = {
   enabled: true,
   app_dir: "",
   env_vars: [],
+  context: "",
 }
 
 function repoToForm(repo: Repository): RepoFormData {
@@ -51,6 +54,7 @@ function repoToForm(repo: Repository): RepoFormData {
     enabled: repo.enabled,
     app_dir: repo.app_dir,
     env_vars: Object.entries(repo.env_vars || {}).map(([key, value]) => ({ key, value })),
+    context: repo.context || "",
   }
 }
 
@@ -66,6 +70,7 @@ function formToPayload(form: RepoFormData) {
     enabled: form.enabled,
     app_dir: form.app_dir,
     env_vars,
+    context: form.context,
   }
 }
 
@@ -197,6 +202,7 @@ export default function AdminReposPage() {
                   <th className="text-left p-3 font-medium">Name</th>
                   <th className="text-left p-3 font-medium">Base Branch</th>
                   <th className="text-left p-3 font-medium">App Dir</th>
+                  <th className="text-left p-3 font-medium">Context</th>
                   <th className="text-left p-3 font-medium">Enabled</th>
                   <th className="text-left p-3 font-medium">Env Vars</th>
                   <th className="text-right p-3 font-medium">Actions</th>
@@ -208,6 +214,14 @@ export default function AdminReposPage() {
                     <td className="p-3 font-medium">{repo.name}</td>
                     <td className="p-3 text-muted-foreground">{repo.base_branch}</td>
                     <td className="p-3 text-muted-foreground">{repo.app_dir || "—"}</td>
+                    <td className="p-3">
+                      <Badge variant={repo.context?.trim() ? "default" : "secondary"} className="text-xs">
+                        {repo.context?.trim() ? 
+                          (repo.context.startsWith('http') ? "URL" : "Text") : 
+                          "None"
+                        }
+                      </Badge>
+                    </td>
                     <td className="p-3">
                       <Badge variant={repo.enabled ? "default" : "secondary"}>
                         {repo.enabled ? "Yes" : "No"}
@@ -287,6 +301,23 @@ export default function AdminReposPage() {
                   value={form.description}
                   onChange={(e) => setForm({ ...form, description: e.target.value })}
                   placeholder="Optional description"
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="context">
+                  QA Context 
+                  <span className="text-xs text-muted-foreground ml-2">
+                    Technical context for AI analysis (architecture, flows, critical files, etc.)
+                  </span>
+                </Label>
+                <Textarea
+                  id="context"
+                  value={form.context}
+                  onChange={(e) => setForm({ ...form, context: e.target.value })}
+                  placeholder="Architecture: Next.js frontend, Ruby worker, Redis queue. Key flows: bug report → AI agent → PR. Critical files: job_processor.rb, proofshot_backend.rb. Or URL: https://docs.company.com/myapp/architecture"
+                  rows={4}
+                  className="text-sm"
                 />
               </div>
 
