@@ -127,6 +127,49 @@ ALTER TABLE jobs ADD COLUMN IF NOT EXISTS source_project VARCHAR(255);
 
 ---
 
+## QA Agent Integration
+
+Prengine now includes an intelligent QA agent that automatically analyzes every code change and generates tailored manual testing checklists for each PR.
+
+### Features
+
+- **Risk Assessment**: Automatically classifies changes as LOW/MEDIUM/HIGH/CRITICAL risk
+- **Component Analysis**: Maps changes to affected system components (Frontend, Worker, AI Agent, Database, Redis)
+- **Context-Aware**: Uses repository-specific technical context for better analysis
+- **Tailored Testing**: Generates specific test steps based on actual code changes
+- **Configurable**: Can be enabled/disabled via `QA_ENABLED=true/false`
+
+### How It Works
+
+The QA agent runs automatically during the job processing workflow:
+
+1. Bug report → AI processes and fixes code
+2. **🤖 QA Agent analyzes changes** ← *NEW STEP*
+3. PR created with QA checklist included
+
+### Example Output
+
+```markdown
+## 🤖 QA Analysis
+
+**Risk Level:** MEDIUM  
+**Components:** AI Agent Logic, Job Processing
+
+### ✅ Manual QA Checklist
+**Functional Testing:**
+- [ ] AI agent properly processes bug reports without getting stuck
+- [ ] Repetition guard prevents infinite loops after 3 identical commands
+- [ ] Different commands are attempted to avoid repetition
+
+**Integration Testing:**
+- [ ] Full end-to-end workflow (bug report → PR creation)
+- [ ] Cross-service communication works correctly
+```
+
+See [README_QA_AGENT.md](./README_QA_AGENT.md) for detailed setup and configuration.
+
+---
+
 ## TODO
 
 * support for our context to be loaded

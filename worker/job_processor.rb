@@ -16,6 +16,7 @@ require_relative "verification_generator"
 require_relative "proof_recorder"
 require_relative "media_uploader"
 require_relative "config"
+require_relative "qa_generator"
 
 class JobProcessor
   def initialize
@@ -331,7 +332,21 @@ class JobProcessor
 
     diff = git.diff_summary
     pr_title = commit_msg.length > 72 ? commit_msg[0..71] : commit_msg
-    pr_body = generate_pr_body(diff_text, prompt, test_status, job_id, proof_urls, submitter_name, output_str)
+    
+    # Generate QA analysis if enabled
+    qa_analysis = nil
+    if Config::QA_ENABLED
+      log_step(job_id, 7, "Generating QA checklist...")
+      begin
+        qa_generator = QAGenerator.new
+        qa_analysis = qa_generator.generate_qa_checklist(job_id, diff_text, test_output, git, output_str)
+      rescue => e
+        puts "[JobProcessor] QA generation failed: #{e.message}"
+        log_step(job_id, 7, "QA generation failed: #{e.message}")
+      end
+    end
+    
+    pr_body = generate_pr_body(diff_text, prompt, test_status, job_id, proof_urls, submitter_name, output_str, qa_analysis)
     log_step(job_id, 7, "PR title: #{pr_title}")
 
     pr_results = git.create_prs(title: pr_title, body: pr_body)
@@ -427,7 +442,7 @@ class JobProcessor
     msg
   end
 
-  def generate_pr_body(diff_text, prompt, test_status, job_id, proof_urls = {}, submitter_name = nil, agent_output = nil)
+  def generate_pr_body(diff_text, prompt, test_status, job_id, proof_urls = {}, submitter_name = nil, agent_output = nil, qa_analysis = nil)
     llm_prompt = <<~P
       You are writing a GitHub pull request description.
 
@@ -455,6 +470,11 @@ class JobProcessor
     body = LLMClient.generate(llm_prompt)
     if body.nil? || body.empty?
       body = "Auto-generated fix for job ##{job_id}\n\n**Bug report:** #{prompt}\n\n**Test status:** #{test_status}"
+    end
+
+    # Append QA analysis if available
+    if qa_analysis && !qa_analysis.empty?
+      body += "\n\n#{qa_analysis}"
     end
 
     # Append raw agent output
