@@ -3,10 +3,14 @@ require "fileutils"
 require "timeout"
 require "shellwords"
 require "socket"
+require_relative "llm_client"
 
 class ProofshotBackend
+  VALID_COMMANDS = %w[click fill type press scroll hover wait].freeze
+  MAX_AI_STEPS = 8
+
   # Returns { video_path: String|nil, screenshot_paths: [String], success: bool }
-  def record(repo_dir:, dev_cmd:, port:, env_vars: {}, timeout: 600)
+  def record(repo_dir:, dev_cmd:, port:, env_vars: {}, timeout: 600, prompt: nil, diff_text: nil)
     @env_vars = env_vars
     artifact_dir = File.join(repo_dir, "proofshot-artifacts")
     FileUtils.mkdir_p(File.join(repo_dir, ".bugfix"))
@@ -50,6 +54,11 @@ class ProofshotBackend
       end
       puts "[ProofshotBackend] Port #{port} is up"
       sleep 15 # let proofshot finish browser setup + recording retries
+
+      # 2b. AI-driven interactions to demonstrate the fix
+      if prompt || diff_text
+        run_ai_interactions(repo_dir: repo_dir, prompt: prompt, diff_text: diff_text)
+      end
 
       # 3. Take screenshots via agent-browser directly
       screenshot_dir = File.join(repo_dir, ".bugfix", "screenshots")
@@ -96,6 +105,75 @@ class ProofshotBackend
   end
 
   private
+
+  def run_ai_interactions(repo_dir:, prompt:, diff_text:)
+    diff_excerpt = diff_text.to_s[0, 2000]
+    puts "[ProofshotBackend] Starting AI interactions (max #{MAX_AI_STEPS} steps)"
+
+    MAX_AI_STEPS.times do |i|
+      # 1. Get page snapshot with interactive element refs
+      snap_result = run_cmd("proofshot exec snapshot -i", chdir: repo_dir)
+      snapshot = snap_result[:stdout].to_s.strip
+      if snapshot.empty?
+        puts "[ProofshotBackend] AI step #{i + 1}: empty snapshot, stopping"
+        break
+      end
+
+      # 2. Ask LLM for next action
+      llm_prompt = <<~LLM
+        You are testing a web app after a bug fix. You control a headless browser.
+
+        BUG REPORT:
+        #{prompt}
+
+        CHANGES MADE:
+        #{diff_excerpt}
+
+        CURRENT PAGE (interactive elements):
+        #{snapshot}
+
+        Return exactly ONE command to execute, or DONE if the fix has been demonstrated.
+
+        Commands:
+          click @eN           — click element by ref
+          fill @eN "text"     — clear + fill input
+          type "text"         — type in focused element
+          press Enter|Tab|Escape  — press key
+          scroll down|up      — scroll page
+          hover @eN           — hover element
+          wait 2000           — wait milliseconds
+          DONE                — finished demonstrating
+
+        Use @eN refs from the snapshot. Focus on demonstrating the fix works.
+        Return ONLY the command line, no explanation.
+      LLM
+
+      response = LLMClient.generate(llm_prompt)
+      command = response.to_s.strip.lines.first.to_s.strip
+      puts "[ProofshotBackend] AI step #{i + 1}: LLM returned: #{command}"
+
+      # 3. Check for DONE
+      if command.upcase == "DONE" || command.empty?
+        puts "[ProofshotBackend] AI interactions complete (#{i + 1} steps)"
+        break
+      end
+
+      # 4. Validate command starts with a known verb
+      verb = command.split(/\s+/).first.downcase
+      unless VALID_COMMANDS.include?(verb)
+        puts "[ProofshotBackend] AI step #{i + 1}: invalid command verb '#{verb}', skipping"
+        next
+      end
+
+      # 5. Execute via proofshot exec (logged in session-log.json)
+      run_cmd("proofshot exec #{command}", chdir: repo_dir)
+      sleep 2 # let page settle
+    rescue => e
+      puts "[ProofshotBackend] AI step #{i + 1} error: #{e.message}"
+    end
+
+    puts "[ProofshotBackend] AI interactions finished"
+  end
 
   def proof_env(extra = {})
     home = ENV['HOME'] || "/Users/jtoy"

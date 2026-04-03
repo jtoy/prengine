@@ -3,9 +3,9 @@ require_relative "proofshot_backend"
 
 module ProofRecorder
   # Returns { video_path: String|nil, screenshot_paths: [String], success: bool }
-  def self.record(repo_dir:, dev_cmd:, port:, env_vars: {}, timeout: Config::PROOF_TIMEOUT)
+  def self.record(repo_dir:, dev_cmd:, port:, env_vars: {}, timeout: Config::PROOF_TIMEOUT, prompt: nil, diff_text: nil)
     backend = create_backend
-    backend.record(repo_dir: repo_dir, dev_cmd: dev_cmd, port: port, env_vars: env_vars, timeout: timeout)
+    backend.record(repo_dir: repo_dir, dev_cmd: dev_cmd, port: port, env_vars: env_vars, timeout: timeout, prompt: prompt, diff_text: diff_text)
   rescue => e
     puts "[ProofRecorder] Error: #{e.message}"
     { video_path: nil, screenshot_paths: [], success: false }

@@ -140,3 +140,6 @@ ALTER TABLE jobs ADD COLUMN IF NOT EXISTS source_project VARCHAR(255);
 * verified I can commmit via zeroclaw
 * tests work on distark 
 * tests work on cartoon_maker
+* screenshot vs video proof
+* cost/tokens measured
+* concurrency testing and validation, all random ports, and tests use  containers or seperate DBs

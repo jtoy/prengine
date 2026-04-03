@@ -301,7 +301,8 @@ class JobProcessor
 
       result = ProofRecorder.record(
         repo_dir: proof_dir, dev_cmd: dev_cmd, port: port,
-        env_vars: repo_env, timeout: Config::PROOF_TIMEOUT
+        env_vars: repo_env, timeout: Config::PROOF_TIMEOUT,
+        prompt: prompt, diff_text: diff_text
       )
 
       if result[:video_path]
