@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { SearchableSelect } from "@/components/ui/searchable-select"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { GitBranch, Loader2 } from "lucide-react"
 
@@ -48,6 +48,12 @@ export function BranchSelector({
     if (b === 'develop') return 1
     return a.localeCompare(b)
   })
+
+  // Convert branches to SearchableSelect options
+  const branchOptions = availableBranches.map(branch => ({
+    value: branch,
+    label: branch
+  }))
 
   // Fetch repos with branches on component mount
   useEffect(() => {
@@ -125,18 +131,14 @@ export function BranchSelector({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="source-branch">Source Branch</Label>
-          <Select value={sourceBranch} onValueChange={onSourceBranchChange} disabled={availableBranches.length === 0}>
-            <SelectTrigger id="source-branch">
-              <SelectValue placeholder={loading ? "Loading branches..." : "Select source branch"} />
-            </SelectTrigger>
-            <SelectContent>
-              {availableBranches.map(branch => (
-                <SelectItem key={branch} value={branch}>
-                  {branch}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableSelect
+            id="source-branch"
+            options={branchOptions}
+            value={sourceBranch}
+            onValueChange={onSourceBranchChange}
+            placeholder={loading ? "Loading branches..." : "Search source branch..."}
+            disabled={loading || availableBranches.length === 0}
+          />
           <p className="text-xs text-muted-foreground">
             Branch to create the fix from
           </p>
@@ -144,33 +146,35 @@ export function BranchSelector({
 
         <div className="space-y-2">
           <Label htmlFor="target-branch">Target Branch</Label>
-          <Select value={targetBranch} onValueChange={onTargetBranchChange} disabled={availableBranches.length === 0}>
-            <SelectTrigger id="target-branch">
-              <SelectValue placeholder={loading ? "Loading branches..." : "Select target branch"} />
-            </SelectTrigger>
-            <SelectContent>
-              {availableBranches.map(branch => (
-                <SelectItem key={branch} value={branch}>
-                  {branch}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableSelect
+            id="target-branch"
+            options={branchOptions}
+            value={targetBranch}
+            onValueChange={onTargetBranchChange}
+            placeholder={loading ? "Loading branches..." : "Search target branch..."}
+            disabled={loading || availableBranches.length === 0}
+          />
           <p className="text-xs text-muted-foreground">
             Branch for the PR to merge into
           </p>
         </div>
       </div>
       
-      {sourceBranch && targetBranch && availableBranches.length > 0 && (
+      {sourceBranch && targetBranch && branchOptions.length > 0 && (
         <div className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
           <strong>Workflow:</strong> Create <code>bugfix/job-*</code> from <code>{sourceBranch}</code> → PR merges into <code>{targetBranch}</code>
         </div>
       )}
 
-      {selectedRepos.length > 0 && availableBranches.length === 0 && !loading && (
+      {selectedRepos.length > 0 && branchOptions.length === 0 && !loading && (
         <div className="text-sm text-muted-foreground bg-yellow-50 border border-yellow-200 p-3 rounded-lg">
           <strong>No branches found</strong> for selected repositories. Default repository settings will be used.
+        </div>
+      )}
+
+      {branchOptions.length > 0 && (
+        <div className="text-xs text-muted-foreground">
+          💡 <strong>Tip:</strong> Start typing to search through {branchOptions.length} available branches
         </div>
       )}
     </div>
