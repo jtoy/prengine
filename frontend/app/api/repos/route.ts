@@ -1,6 +1,61 @@
 import { NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/db"
 
+// Fetch all branches from a repository with pagination
+async function fetchAllBranches(owner: string, repo: string): Promise<any[]> {
+  const allBranches: any[] = []
+  let page = 1
+  const perPage = 100 // GitHub's max per page
+  const maxPages = 20 // Safety limit (2000 branches max)
+
+  while (page <= maxPages) {
+    try {
+      const response = await fetch(
+        `https://api.github.com/repos/${owner}/${repo}/branches?per_page=${perPage}&page=${page}`, 
+        {
+          headers: {
+            'Authorization': `Bearer ${process.env.GITHUB_TOKEN}`,
+            'Accept': 'application/vnd.github.v3+json',
+          },
+          // Note: 30 second Vercel function timeout should handle slow repos
+        }
+      )
+
+      if (!response.ok) {
+        if (page === 1) {
+          // First page failed - throw error
+          throw new Error(`GitHub API error: ${response.status}`)
+        }
+        // Subsequent page failed - just stop pagination
+        break
+      }
+
+      const branches = await response.json()
+      
+      if (!Array.isArray(branches) || branches.length === 0) {
+        // No more branches - end pagination
+        break
+      }
+
+      allBranches.push(...branches)
+
+      // If we got fewer than perPage results, we've reached the end
+      if (branches.length < perPage) {
+        break
+      }
+
+      page++
+      
+    } catch (error) {
+      console.warn(`Error fetching page ${page} for ${owner}/${repo}:`, error)
+      break
+    }
+  }
+
+  console.log(`[GitHub API] Fetched ${allBranches.length} branches for ${owner}/${repo} (${page - 1} pages)`)
+  return allBranches
+}
+
 // GET /api/repos — list available repositories (from database)
 // GET /api/repos?branches=true — list repositories with their branches
 export async function GET(request: NextRequest) {
@@ -36,20 +91,10 @@ export async function GET(request: NextRequest) {
             }
           }
           
-          const response = await fetch(`https://api.github.com/repos/${owner}/${repoSlug}/branches?per_page=100`, {
-            headers: {
-              'Authorization': `Bearer ${process.env.GITHUB_TOKEN}`,
-              'Accept': 'application/vnd.github.v3+json',
-            },
-          })
+          // Fetch all branches with pagination
+          const allBranches = await fetchAllBranches(owner, repoSlug)
           
-          if (!response.ok) {
-            throw new Error(`GitHub API error: ${response.status}`)
-          }
-          
-          const branches = await response.json()
-          
-          const branchNames = branches
+          const branchNames = allBranches
             .map(branch => branch.name)
             .sort((a, b) => {
               // Sort: main, master, develop, then alphabetical

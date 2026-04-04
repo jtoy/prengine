@@ -30,6 +30,7 @@ export function BranchSelector({
 }: BranchSelectorProps) {
   const [reposWithBranches, setReposWithBranches] = useState<RepoWithBranches[]>([])
   const [loading, setLoading] = useState(false)
+  const [loadingProgress, setLoadingProgress] = useState("")
   const [error, setError] = useState("")
 
   // Get unique branches from selected repositories
@@ -60,6 +61,7 @@ export function BranchSelector({
   useEffect(() => {
     const fetchReposWithBranches = async () => {
       setLoading(true)
+      setLoadingProgress("Fetching repositories...")
       setError("")
       
       try {
@@ -68,8 +70,13 @@ export function BranchSelector({
           throw new Error('Failed to fetch repositories with branches')
         }
         
+        setLoadingProgress("Loading branches (this may take a moment for repos with many branches)...")
+        
         const data: RepoWithBranches[] = await response.json()
         setReposWithBranches(data)
+        
+        const totalBranches = data.reduce((sum, repo) => sum + repo.branches.length, 0)
+        setLoadingProgress("")
         
         // Debug logging
         console.log('Fetched branches for repos:', data.map(repo => ({
@@ -79,8 +86,11 @@ export function BranchSelector({
           hasError: !!repo.error
         })))
         
+        console.log(`Total branches loaded: ${totalBranches}`)
+        
       } catch (err: any) {
         setError(err.message || "Failed to fetch branches")
+        setLoadingProgress("")
         console.error('Branch fetch error:', err)
       }
       
@@ -147,6 +157,12 @@ export function BranchSelector({
         {loading && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
       </div>
       
+      {loadingProgress && (
+        <div className="text-sm text-muted-foreground italic">
+          {loadingProgress}
+        </div>
+      )}
+      
       {error && (
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
@@ -210,7 +226,7 @@ export function BranchSelector({
       <div className="text-xs text-muted-foreground">
         💡 <strong>Tip:</strong> 
         {branchOptions.length > 0 ? (
-          <> Search through {branchOptions.length} available branches, or type a custom branch name</>
+          <> Search through {branchOptions.length} available branches{branchOptions.length > 100 && <span className="text-green-600 font-medium"> (all fetched via pagination)</span>}, or type a custom branch name</>
         ) : (
           <> Type any branch name (e.g., "svg_edit", "feature/new-ui")</>
         )}
