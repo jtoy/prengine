@@ -16,6 +16,7 @@ interface BranchSelectorProps {
 
 interface RepoWithBranches {
   name: string
+  base_branch: string
   branches: string[]
   error?: string
 }
@@ -73,6 +74,7 @@ export function BranchSelector({
         // Debug logging
         console.log('Fetched branches for repos:', data.map(repo => ({
           repo: repo.name,
+          base_branch: repo.base_branch,
           branches: repo.branches.length,
           hasError: !!repo.error
         })))
@@ -90,13 +92,27 @@ export function BranchSelector({
 
   // Auto-select sensible defaults when repos are selected
   useEffect(() => {
-    if (selectedRepos.length === 0 || availableBranches.length === 0) {
+    if (selectedRepos.length === 0) {
       return
     }
 
+    // Get the selected repositories' data
+    const selectedRepoData = reposWithBranches.filter(repo => selectedRepos.includes(repo.name))
+    
+    if (selectedRepoData.length === 0) {
+      return
+    }
+
+    // Use the first selected repository's base_branch as default
+    const primaryRepo = selectedRepoData[0]
+    const preferredBranch = primaryRepo.base_branch
+
     // Auto-select source branch if not set
     if (!sourceBranch) {
-      if (availableBranches.includes('main')) {
+      // First try the repo's configured base_branch
+      if (availableBranches.includes(preferredBranch)) {
+        onSourceBranchChange(preferredBranch)
+      } else if (availableBranches.includes('main')) {
         onSourceBranchChange('main')
       } else if (availableBranches.includes('develop')) {
         onSourceBranchChange('develop')
@@ -105,9 +121,11 @@ export function BranchSelector({
       }
     }
     
-    // Auto-select target branch if not set
+    // Auto-select target branch if not set (same logic)
     if (!targetBranch) {
-      if (availableBranches.includes('main')) {
+      if (availableBranches.includes(preferredBranch)) {
+        onTargetBranchChange(preferredBranch)
+      } else if (availableBranches.includes('main')) {
         onTargetBranchChange('main')
       } else if (availableBranches.includes('develop')) {
         onTargetBranchChange('develop')
@@ -115,7 +133,7 @@ export function BranchSelector({
         onTargetBranchChange(availableBranches[0])
       }
     }
-  }, [selectedRepos, availableBranches, sourceBranch, targetBranch, onSourceBranchChange, onTargetBranchChange])
+  }, [selectedRepos, reposWithBranches, availableBranches, sourceBranch, targetBranch, onSourceBranchChange, onTargetBranchChange])
 
   if (selectedRepos.length === 0) {
     return null
@@ -195,6 +213,11 @@ export function BranchSelector({
           <> Search through {branchOptions.length} available branches, or type a custom branch name</>
         ) : (
           <> Type any branch name (e.g., "svg_edit", "feature/new-ui")</>
+        )}
+        {selectedRepos.length > 0 && reposWithBranches.length > 0 && (
+          <span className="block mt-1">
+            Default uses <strong>{reposWithBranches.find(r => selectedRepos.includes(r.name))?.base_branch}</strong> from {selectedRepos[0]}
+          </span>
         )}
       </div>
     </div>

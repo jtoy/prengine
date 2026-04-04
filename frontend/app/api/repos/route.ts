@@ -9,30 +9,34 @@ export async function GET(request: NextRequest) {
     const includeBranches = searchParams.get('branches') === 'true'
     
     const result = await query(
-      "SELECT name FROM repositories WHERE enabled = true ORDER BY id"
+      "SELECT name, base_branch FROM repositories WHERE enabled = true ORDER BY id"
     )
-    const repoNames = result.rows.map((r: { name: string }) => r.name)
+    const repoData = result.rows.map((r: { name: string; base_branch: string }) => ({
+      name: r.name,
+      base_branch: r.base_branch || 'main'
+    }))
     
     // Simple response - just repo names
     if (!includeBranches) {
-      return NextResponse.json(repoNames)
+      return NextResponse.json(repoData.map(r => r.name))
     }
     
     // Enhanced response - repos with branches
     const reposWithBranches = await Promise.all(
-      repoNames.map(async (repoName) => {
+      repoData.map(async (repo) => {
         try {
-          const [owner, repo] = repoName.split('/')
+          const [owner, repoSlug] = repo.name.split('/')
           
-          if (!owner || !repo) {
+          if (!owner || !repoSlug) {
             return {
-              name: repoName,
-              branches: ['main', 'develop'], // fallback
+              name: repo.name,
+              base_branch: repo.base_branch,
+              branches: [repo.base_branch, 'main', 'develop'], // fallback
               error: 'Invalid repo format'
             }
           }
           
-          const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/branches?per_page=100`, {
+          const response = await fetch(`https://api.github.com/repos/${owner}/${repoSlug}/branches?per_page=100`, {
             headers: {
               'Authorization': `Bearer ${process.env.GITHUB_TOKEN}`,
               'Accept': 'application/vnd.github.v3+json',
@@ -59,15 +63,17 @@ export async function GET(request: NextRequest) {
             })
           
           return {
-            name: repoName,
+            name: repo.name,
+            base_branch: repo.base_branch,
             branches: branchNames
           }
           
         } catch (error: any) {
-          console.warn(`Failed to fetch branches for ${repoName}:`, error.message)
+          console.warn(`Failed to fetch branches for ${repo.name}:`, error.message)
           return {
-            name: repoName,
-            branches: ['main', 'develop', 'master'], // fallback
+            name: repo.name,
+            base_branch: repo.base_branch,
+            branches: [repo.base_branch, 'main', 'develop', 'master'], // fallback with repo's default first
             error: error.message
           }
         }
