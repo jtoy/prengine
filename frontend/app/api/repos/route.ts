@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
             }
           }
           
-          const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/branches?per_page=50`, {
+          const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/branches?per_page=100`, {
             headers: {
               'Authorization': `Bearer ${process.env.GITHUB_TOKEN}`,
               'Accept': 'application/vnd.github.v3+json',

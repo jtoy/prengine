@@ -19,6 +19,7 @@ interface SearchableSelectProps {
   disabled?: boolean
   className?: string
   id?: string
+  allowCustom?: boolean // Allow typing custom values not in the list
 }
 
 export function SearchableSelect({
@@ -29,6 +30,7 @@ export function SearchableSelect({
   disabled = false,
   className,
   id,
+  allowCustom = false,
 }: SearchableSelectProps) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState("")
@@ -51,6 +53,16 @@ export function SearchableSelect({
     setSearch("")
     setOpen(false)
     inputRef.current?.blur()
+  }
+
+  // Handle custom value selection (when user types and presses Enter)
+  const handleCustomValue = () => {
+    if (allowCustom && search.trim() && !filteredOptions.some(opt => opt.value === search.trim())) {
+      onValueChange(search.trim())
+      setSearch("")
+      setOpen(false)
+      inputRef.current?.blur()
+    }
   }
 
   // Handle input focus
@@ -90,9 +102,13 @@ export function SearchableSelect({
       setOpen(false)
       setSearch("")
       inputRef.current?.blur()
-    } else if (e.key === "Enter" && filteredOptions.length === 1) {
+    } else if (e.key === "Enter") {
       e.preventDefault()
-      handleSelect(filteredOptions[0].value)
+      if (filteredOptions.length === 1) {
+        handleSelect(filteredOptions[0].value)
+      } else if (allowCustom && search.trim()) {
+        handleCustomValue()
+      }
     } else if (e.key === "ArrowDown") {
       e.preventDefault()
       if (!open) setOpen(true)
@@ -144,8 +160,20 @@ export function SearchableSelect({
           className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-60 overflow-auto"
         >
           {filteredOptions.length === 0 ? (
-            <div className="px-3 py-2 text-sm text-muted-foreground">
-              No branches found
+            <div className="py-1">
+              {allowCustom && search.trim() ? (
+                <button
+                  type="button"
+                  className="relative w-full px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none border-l-2 border-blue-500"
+                  onClick={handleCustomValue}
+                >
+                  <span className="block truncate">Use custom branch: <code className="bg-muted px-1 rounded">{search}</code></span>
+                </button>
+              ) : (
+                <div className="px-3 py-2 text-sm text-muted-foreground">
+                  No branches found
+                </div>
+              )}
             </div>
           ) : (
             <div className="py-1">
@@ -165,6 +193,17 @@ export function SearchableSelect({
                   )}
                 </button>
               ))}
+              
+              {/* Show custom option if allowCustom and search doesn't match any existing */}
+              {allowCustom && search.trim() && !filteredOptions.some(opt => opt.value.toLowerCase() === search.toLowerCase()) && (
+                <button
+                  type="button"
+                  className="relative w-full px-3 py-2 text-left text-sm hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none border-t border-l-2 border-blue-500"
+                  onClick={handleCustomValue}
+                >
+                  <span className="block truncate">Use custom branch: <code className="bg-muted px-1 rounded">{search}</code></span>
+                </button>
+              )}
             </div>
           )}
         </div>

@@ -70,6 +70,13 @@ export function BranchSelector({
         const data: RepoWithBranches[] = await response.json()
         setReposWithBranches(data)
         
+        // Debug logging
+        console.log('Fetched branches for repos:', data.map(repo => ({
+          repo: repo.name,
+          branches: repo.branches.length,
+          hasError: !!repo.error
+        })))
+        
       } catch (err: any) {
         setError(err.message || "Failed to fetch branches")
         console.error('Branch fetch error:', err)
@@ -136,8 +143,9 @@ export function BranchSelector({
             options={branchOptions}
             value={sourceBranch}
             onValueChange={onSourceBranchChange}
-            placeholder={loading ? "Loading branches..." : "Search source branch..."}
-            disabled={loading || availableBranches.length === 0}
+            placeholder={loading ? "Loading branches..." : "Search or type branch name..."}
+            disabled={loading}
+            allowCustom={true}
           />
           <p className="text-xs text-muted-foreground">
             Branch to create the fix from
@@ -151,8 +159,9 @@ export function BranchSelector({
             options={branchOptions}
             value={targetBranch}
             onValueChange={onTargetBranchChange}
-            placeholder={loading ? "Loading branches..." : "Search target branch..."}
-            disabled={loading || availableBranches.length === 0}
+            placeholder={loading ? "Loading branches..." : "Search or type branch name..."}
+            disabled={loading}
+            allowCustom={true}
           />
           <p className="text-xs text-muted-foreground">
             Branch for the PR to merge into
@@ -168,15 +177,26 @@ export function BranchSelector({
 
       {selectedRepos.length > 0 && branchOptions.length === 0 && !loading && (
         <div className="text-sm text-muted-foreground bg-yellow-50 border border-yellow-200 p-3 rounded-lg">
-          <strong>No branches found</strong> for selected repositories. Default repository settings will be used.
+          <strong>No branches loaded</strong> for selected repositories. You can still type custom branch names.
         </div>
+      )}
+      
+      {reposWithBranches.some(repo => repo.error) && (
+        <Alert>
+          <AlertDescription>
+            Some repositories had errors loading branches. You can type branch names manually.
+          </AlertDescription>
+        </Alert>
       )}
 
-      {branchOptions.length > 0 && (
-        <div className="text-xs text-muted-foreground">
-          💡 <strong>Tip:</strong> Start typing to search through {branchOptions.length} available branches
-        </div>
-      )}
+      <div className="text-xs text-muted-foreground">
+        💡 <strong>Tip:</strong> 
+        {branchOptions.length > 0 ? (
+          <> Search through {branchOptions.length} available branches, or type a custom branch name</>
+        ) : (
+          <> Type any branch name (e.g., "svg_edit", "feature/new-ui")</>
+        )}
+      </div>
     </div>
   )
 }
