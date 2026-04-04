@@ -170,6 +170,35 @@ See [README_QA_AGENT.md](./README_QA_AGENT.md) for detailed setup and configurat
 
 ---
 
+## Job-Level Branch Selection
+
+Prengine supports flexible Git workflows with job-level branch selection. Choose source and target branches when submitting bug reports.
+
+### Features
+
+- **🎯 Flexible Workflows** - Support for GitFlow, GitHub Flow, and custom strategies
+- **🔍 Smart Discovery** - Automatically fetches available branches from repositories  
+- **🤖 Intelligent Defaults** - Suggests appropriate strategies based on bug content
+- **⚙️ UI Integration** - Simple branch selection in the job submission form
+
+### Examples
+
+```
+Hotfix: main → main (fast production fixes)
+Feature: develop → develop (new functionality)
+Release: release/v2.0 → main (release preparation)
+```
+
+**How it works:**
+1. Select repositories in job submission form
+2. Choose source branch (where to create fix from)  
+3. Choose target branch (where PR should merge)
+4. Worker creates `bugfix/job-123` from source → PR targets target branch
+
+See [README_BRANCH_SELECTION.md](./README_BRANCH_SELECTION.md) for complete documentation.
+
+---
+
 ## TODO
 
 * support for our context to be loaded

@@ -4,6 +4,7 @@ require "open3"
 require_relative "config"
 require_relative "db"
 require_relative "workspace_manager"
+require_relative "branch_resolver"
 
 class MultiRepoGitManager
   attr_reader :branch_name, :workspace

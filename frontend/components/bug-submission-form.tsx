@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { FileUpload } from "./file-upload"
+import { BranchSelector } from "./branch-selector"
 import { createJob, fetchRepos } from "@/lib/api-client"
 import type { Attachment, JobMode } from "@/lib/db-types"
 import { Bug, Send, Link } from "lucide-react"
@@ -22,6 +23,8 @@ export function BugSubmissionForm() {
   const [availableRepos, setAvailableRepos] = useState<string[]>([])
   const [mediaUrl, setMediaUrl] = useState("")
   const [enrich, setEnrich] = useState(false)
+  const [sourceBranch, setSourceBranch] = useState("")
+  const [targetBranch, setTargetBranch] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState("")
   const router = useRouter()
@@ -68,6 +71,8 @@ export function BugSubmissionForm() {
         attachments: allAttachments,
         selected_repos: selectedRepos.length > 0 ? selectedRepos : undefined,
         enrich: enrich || undefined,
+        source_branch: sourceBranch || undefined,
+        target_branch: targetBranch || undefined,
       })
       router.push(`/jobs/${job.id}`)
     } catch (err) {
@@ -183,6 +188,14 @@ export function BugSubmissionForm() {
               </div>
             </div>
           )}
+
+          <BranchSelector
+            selectedRepos={selectedRepos}
+            sourceBranch={sourceBranch}
+            targetBranch={targetBranch}
+            onSourceBranchChange={setSourceBranch}
+            onTargetBranchChange={setTargetBranch}
+          />
 
           <div className="space-y-2">
             <Label>Attachments</Label>

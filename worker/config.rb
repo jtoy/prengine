@@ -17,6 +17,7 @@ module Config
   PROOF_BACKEND    = ENV.fetch("PROOF_BACKEND", "proofshot")  # proofshot | playwright (future)
   PROOF_TIMEOUT    = ENV.fetch("PROOF_TIMEOUT", "600").to_i   # 10 minutes
   QA_ENABLED       = ENV.fetch("QA_ENABLED", "true") == "true" # Enable QA checklist generation
+  ENHANCED_BRANCHES = ENV.fetch("ENHANCED_BRANCHES", "true") == "true" # Enable job-level branch selection
   CACHE_DIR         = File.join(WORK_DIR, "cache")
   QUEUE_KEY        = "bugfixvibe:jobs"
   STATUS_CHANNEL   = "bugfixvibe:status"

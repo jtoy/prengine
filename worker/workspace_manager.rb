@@ -35,9 +35,14 @@ class WorkspaceManager
   # If the branch already exists on remote (follow-up run), check it out to build on previous commits.
   # Otherwise, create a new branch from the configured base branch.
   def create_branches(branch_name)
+    create_branches_from(branch_name, nil)
+  end
+  
+  # Create branches from a specific source branch (for custom workflows)
+  def create_branches_from(branch_name, source_branch = nil)
     each_repo_dir do |dir, name|
       full_name = @repo_names.find { |r| r.split("/").last == name }
-      base_branch = DB.get_repo_branch(full_name)
+      base_branch = source_branch || DB.get_repo_branch(full_name)
 
       # Set authenticated remote URL so ls-remote works for private repos
       auth_url = "https://#{Config::GITHUB_TOKEN}@github.com/#{full_name}.git"

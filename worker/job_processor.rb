@@ -17,6 +17,7 @@ require_relative "proof_recorder"
 require_relative "media_uploader"
 require_relative "config"
 require_relative "qa_generator"
+require_relative "enhanced_git_manager"
 
 class JobProcessor
   def initialize
@@ -192,7 +193,19 @@ class JobProcessor
 
   def execute_pipeline(job_id, run_id, run_number, repo_names, prompt, submitter_name, mode)
     started_at = Time.now.utc
-    git = MultiRepoGitManager.new(repo_names, job_id, run_number)
+    
+    # Get job context for branch resolution
+    job = DB.get_job(job_id)
+    
+    # Use enhanced git manager with branch resolution if enabled
+    git = if Config::ENHANCED_BRANCHES && job && (job['source_branch'] || job['target_branch'])
+      puts "[JobProcessor] Using enhanced branch strategy: #{job['source_branch']} → #{job['target_branch']}"
+      EnhancedGitManager.new(repo_names, job_id, run_number, job)
+    else
+      puts "[JobProcessor] Using default branch strategy"
+      MultiRepoGitManager.new(repo_names, job_id, run_number)
+    end
+    
     repo_dirs = repo_names.map { |r| r.split("/").last }
 
     # Step 1: Setup multi-repo workspace (clone from cache + branch)
