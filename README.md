@@ -215,3 +215,5 @@ See [README_BRANCH_SELECTION.md](./README_BRANCH_SELECTION.md) for complete docu
 * screenshot vs video proof
 * cost/tokens measured
 * concurrency testing and validation, all random ports, and tests use  containers or seperate DBs
+Saas:
+* generic authentication/RBAC endpoint included that can be used

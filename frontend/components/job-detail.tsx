@@ -169,7 +169,7 @@ export function JobDetail({ jobId }: { jobId: number }) {
               className="gap-1 text-red-600 hover:text-red-700 hover:bg-red-50"
               disabled={closing}
               onClick={() => {
-                setCloseNote("")
+                setCloseNote(job.note ?? "")
                 setShowCloseDialog(true)
               }}
             >
