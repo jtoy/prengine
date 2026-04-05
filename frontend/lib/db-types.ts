@@ -21,6 +21,7 @@ export interface Job {
   selected_repos: string[] | null
   diff_summary: string | null
   failure_reason: string | null
+  note: string | null
   attachments: Attachment[]
   repo_url: string | null
   enrich: boolean
@@ -68,7 +69,7 @@ export interface JobLog {
   created_at: string
 }
 
-export type JobStatus = 'pending' | 'queued' | 'processing' | 'testing' | 'pr_submitted' | 'pr_merged' | 'completed' | 'failed'
+export type JobStatus = 'pending' | 'queued' | 'processing' | 'testing' | 'pr_submitted' | 'pr_merged' | 'completed' | 'failed' | 'closed'
 export type RunStatus = 'pending' | 'cloning' | 'running_agent' | 'running_tests' | 'pushing' | 'creating_pr' | 'starting_preview' | 'completed' | 'failed'
 
 export interface Repository {

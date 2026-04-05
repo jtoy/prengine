@@ -12,6 +12,7 @@ const statusConfig: Record<string, { label: string; className: string }> = {
   pr_merged: { label: "PR Merged", className: "bg-emerald-600 text-white border-emerald-600" },
   completed: { label: "Completed", className: "bg-green-600 text-white border-green-600" },
   failed: { label: "Failed", className: "bg-red-500 text-white border-red-500" },
+  closed: { label: "Closed", className: "bg-slate-500 text-white border-slate-500" },
   // Run statuses
   cloning: { label: "Cloning", className: "bg-blue-400 text-white border-blue-400" },
   running_agent: { label: "Running Agent", className: "bg-yellow-500 text-white border-yellow-500" },

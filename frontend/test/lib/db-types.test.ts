@@ -11,15 +11,19 @@ describe('db-types', () => {
       status: 'pending',
       created_by: 1,
       created_by_email: 'user@test.com',
+      created_by_name: null,
       pr_url: null,
       pr_urls: null,
       selected_repos: null,
       diff_summary: null,
       failure_reason: null,
+      note: null,
       attachments: [],
       repo_url: null,
       enrich: false,
       enriched_summary: null,
+      source_branch: null,
+      target_branch: null,
       created_at: '2024-01-01T00:00:00Z',
       updated_at: '2024-01-01T00:00:00Z',
     }
@@ -42,6 +46,7 @@ describe('db-types', () => {
       test_output: null,
       diff_summary: null,
       prompt: null,
+      session_content: null,
       created_at: '2024-01-01T00:00:00Z',
       finished_at: null,
     }
@@ -56,8 +61,8 @@ describe('db-types', () => {
   })
 
   it('JobStatus type covers all statuses', () => {
-    const statuses: JobStatus[] = ['pending', 'queued', 'processing', 'testing', 'pr_submitted', 'pr_merged', 'completed', 'failed']
-    expect(statuses).toHaveLength(8)
+    const statuses: JobStatus[] = ['pending', 'queued', 'processing', 'testing', 'pr_submitted', 'pr_merged', 'completed', 'failed', 'closed']
+    expect(statuses).toHaveLength(9)
   })
 
   it('RunStatus type covers all statuses', () => {

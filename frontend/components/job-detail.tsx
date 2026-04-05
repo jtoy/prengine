@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -8,9 +8,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { JobStatusBadge } from "./job-status-badge"
 import { FollowupForm } from "./followup-form"
 import { useJobPolling } from "@/hooks/use-job-events"
-import { fetchJob, fetchJobRuns, closePRs, mergePRs } from "@/lib/api-client"
+import { fetchJob, fetchJobRuns, closePRs, mergePRs, updateJob } from "@/lib/api-client"
 import type { Job, JobRun } from "@/lib/db-types"
 import { SessionTranscript } from "./session-transcript"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
+import { Textarea } from "@/components/ui/textarea"
 import {
   ExternalLink,
   GitPullRequest,
@@ -22,6 +30,10 @@ import {
   Sparkles,
   XCircle,
   GitMerge,
+  MessageSquare,
+  Check,
+  X,
+  Pencil,
 } from "lucide-react"
 
 export function JobDetail({ jobId }: { jobId: number }) {
@@ -29,6 +41,12 @@ export function JobDetail({ jobId }: { jobId: number }) {
   const [runs, setRuns] = useState<JobRun[]>([])
   const [loading, setLoading] = useState(true)
   const [closing, setClosing] = useState(false)
+  const [showCloseDialog, setShowCloseDialog] = useState(false)
+  const [closeNote, setCloseNote] = useState("")
+  const [editingNote, setEditingNote] = useState(false)
+  const [noteValue, setNoteValue] = useState("")
+  const [savingNote, setSavingNote] = useState(false)
+  const noteRef = useRef<HTMLTextAreaElement>(null)
 
   const loadData = async () => {
     try {
@@ -55,6 +73,24 @@ export function JobDetail({ jobId }: { jobId: number }) {
   useEffect(() => {
     if (job) setLastStatus(job.status)
   }, [job?.status])
+
+  const saveNote = async () => {
+    if (!job) return
+    setSavingNote(true)
+    const prev = job.note
+    setJob({ ...job, note: noteValue.trim() || null })
+    setEditingNote(false)
+    try {
+      const updated = await updateJob(jobId, { note: noteValue.trim() || null })
+      setJob(updated)
+    } catch (err) {
+      console.error("Failed to save note:", err)
+      setJob({ ...job, note: prev })
+      setEditingNote(true)
+    } finally {
+      setSavingNote(false)
+    }
+  }
 
   if (loading) {
     return (
@@ -132,17 +168,9 @@ export function JobDetail({ jobId }: { jobId: number }) {
               size="sm"
               className="gap-1 text-red-600 hover:text-red-700 hover:bg-red-50"
               disabled={closing}
-              onClick={async () => {
-                if (!confirm("Close all PRs for this job?")) return
-                setClosing(true)
-                try {
-                  const updated = await closePRs(jobId)
-                  setJob(updated)
-                } catch (err) {
-                  console.error("Failed to close PRs:", err)
-                } finally {
-                  setClosing(false)
-                }
+              onClick={() => {
+                setCloseNote("")
+                setShowCloseDialog(true)
               }}
             >
               <XCircle className="w-4 h-4" />
@@ -198,6 +226,81 @@ export function JobDetail({ jobId }: { jobId: number }) {
               <p className="text-sm text-red-600 mt-1">{job.failure_reason}</p>
             </div>
           )}
+
+          <div className="p-3 bg-slate-50 border border-slate-200 rounded-md">
+            <p className="text-sm font-medium text-slate-700 flex items-center gap-1 mb-1">
+              <MessageSquare className="w-3 h-3" />
+              Note
+            </p>
+            {editingNote ? (
+              <div className="space-y-2">
+                <Textarea
+                  ref={noteRef}
+                  value={noteValue}
+                  onChange={(e) => setNoteValue(e.target.value)}
+                  rows={3}
+                  className="text-sm"
+                  placeholder="Add a note..."
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") {
+                      setEditingNote(false)
+                      setNoteValue(job.note ?? "")
+                    }
+                    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+                      e.preventDefault()
+                      saveNote()
+                    }
+                  }}
+                />
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2 gap-1 text-green-700 hover:text-green-800 hover:bg-green-50"
+                    disabled={savingNote}
+                    onClick={saveNote}
+                  >
+                    <Check className="w-3 h-3" />
+                    {savingNote ? "Saving..." : "Save"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 px-2 gap-1 text-slate-500"
+                    disabled={savingNote}
+                    onClick={() => {
+                      setEditingNote(false)
+                      setNoteValue(job.note ?? "")
+                    }}
+                  >
+                    <X className="w-3 h-3" />
+                    Cancel
+                  </Button>
+                  <span className="text-xs text-muted-foreground ml-auto">Ctrl+Enter to save · Esc to cancel</span>
+                </div>
+              </div>
+            ) : (
+              <button
+                className="w-full text-left group"
+                onClick={() => {
+                  setNoteValue(job.note ?? "")
+                  setEditingNote(true)
+                  setTimeout(() => noteRef.current?.focus(), 0)
+                }}
+              >
+                {job.note ? (
+                  <span className="flex items-start gap-2">
+                    <span className="text-sm text-slate-600 whitespace-pre-wrap flex-1">{job.note}</span>
+                    <Pencil className="w-3 h-3 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mt-0.5" />
+                  </span>
+                ) : (
+                  <span className="text-sm text-slate-400 italic group-hover:text-slate-500 transition-colors">
+                    Add a note...
+                  </span>
+                )}
+              </button>
+            )}
+          </div>
 
           {job.enriched_summary && (
             <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
@@ -306,6 +409,49 @@ export function JobDetail({ jobId }: { jobId: number }) {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <Dialog open={showCloseDialog} onOpenChange={setShowCloseDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Close PRs</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <p className="text-sm text-muted-foreground">
+              This will close all open PRs for this job on GitHub.
+            </p>
+            <Textarea
+              placeholder="Add a note explaining why (optional)"
+              value={closeNote}
+              onChange={(e) => setCloseNote(e.target.value)}
+              rows={3}
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCloseDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={closing}
+              onClick={async () => {
+                setShowCloseDialog(false)
+                setClosing(true)
+                try {
+                  const updated = await closePRs(jobId, closeNote.trim() || undefined)
+                  setJob(updated)
+                } catch (err) {
+                  console.error("Failed to close PRs:", err)
+                } finally {
+                  setClosing(false)
+                }
+              }}
+            >
+              {closing ? "Closing..." : "Close PRs"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

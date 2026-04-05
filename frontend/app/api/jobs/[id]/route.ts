@@ -73,9 +73,10 @@ export async function PATCH(
       if (errors.length > 0) {
         return NextResponse.json({ error: `Failed to close PRs: ${errors.join(", ")}` }, { status: 502 })
       }
+      const note = body.note?.trim() || null
       const result = await query(
-        "UPDATE jobs SET status = 'closed', updated_at = NOW() WHERE id = $1 RETURNING *",
-        [params.id]
+        "UPDATE jobs SET status = 'closed', note = $2, updated_at = NOW() WHERE id = $1 RETURNING *",
+        [params.id, note]
       )
       return NextResponse.json(result.rows[0])
     }
@@ -123,7 +124,7 @@ export async function PATCH(
     const values: any[] = []
     let paramIndex = 1
 
-    const allowedFields = ["status", "pr_url", "diff_summary", "failure_reason", "repo_url"]
+    const allowedFields = ["status", "pr_url", "diff_summary", "failure_reason", "note", "repo_url"]
 
     for (const field of allowedFields) {
       if (body[field] !== undefined) {
