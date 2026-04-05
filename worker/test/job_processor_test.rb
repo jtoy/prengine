@@ -218,4 +218,33 @@ class JobProcessorTest < Minitest::Test
   def test_build_agent_prompt_for_build_returns_original_prompt
     assert_equal "Fix the button", @processor.send(:build_agent_prompt, "Fix the button", "build")
   end
+
+  def test_generate_pr_body_with_qa_analysis
+    qa_analysis = "## QA Checklist\n- [ ] Test feature X\n- [ ] Verify styling"
+    LLMClient.expects(:generate).returns("## Summary\nFixed the bug")
+    
+    result = @processor.send(:generate_pr_body, "diff", "prompt", "passed", 1, {}, nil, nil, qa_analysis)
+    
+    assert_includes result, "Summary"
+    assert_includes result, "QA Checklist"
+    assert_includes result, "Test feature X"
+  end
+
+  def test_generate_pr_body_without_qa_analysis
+    LLMClient.expects(:generate).returns("## Summary\nFixed the bug")
+    
+    result = @processor.send(:generate_pr_body, "diff", "prompt", "passed", 1, {}, nil, nil, nil)
+    
+    assert_includes result, "Summary"
+    refute_includes result, "QA Checklist"
+  end
+
+  def test_generate_pr_body_with_empty_qa_analysis
+    LLMClient.expects(:generate).returns("## Summary\nFixed the bug")
+    
+    result = @processor.send(:generate_pr_body, "diff", "prompt", "passed", 1, {}, nil, nil, "")
+    
+    assert_includes result, "Summary"
+    refute_includes result, "QA Checklist"
+  end
 end

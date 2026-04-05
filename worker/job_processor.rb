@@ -352,7 +352,7 @@ class JobProcessor
       log_step(job_id, 7, "Generating QA checklist...")
       begin
         qa_generator = QAGenerator.new
-        qa_analysis = qa_generator.generate_qa_checklist(job_id, diff_text, test_output, git, output_str)
+        qa_analysis = qa_generator.generate_qa_checklist(job_id, diff_text, test_result[:output], git, output_str)
       rescue => e
         puts "[JobProcessor] QA generation failed: #{e.message}"
         log_step(job_id, 7, "QA generation failed: #{e.message}")
