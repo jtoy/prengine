@@ -9,6 +9,8 @@
   var project = scriptTag.getAttribute("data-project") || "";
   var tokenKey = scriptTag.getAttribute("data-token-key") || "prengine_token";
   var showMode = scriptTag.getAttribute("data-show") || "always";
+  // "bar" (default) = slim vertical bar on right edge | "circle" = classic round button
+  var widgetStyle = scriptTag.getAttribute("data-widget-style") || "bar";
 
   // Determine the base URL from the script src
   var scriptSrc = scriptTag.getAttribute("src") || "";
@@ -46,81 +48,161 @@
   var BUTTON_SIZE = 40;
   var BADGE_SIZE = 14;
 
+  // Inject keyframe styles once
+  function injectBaseStyles() {
+    if (document.getElementById("prengine-base-style")) return;
+    var styleTag = document.createElement("style");
+    styleTag.id = "prengine-base-style";
+    styleTag.textContent =
+      "@keyframes prengine-bar-in { from { opacity:0; transform:translateX(100%) translateY(-50%); } to { opacity:1; transform:translateX(0) translateY(-50%); } }" +
+      "#prengine-widget-btn.bar-style { animation: prengine-bar-in 0.3s ease forwards; }" +
+      "#prengine-widget-btn.bar-style:hover { width: 14px !important; box-shadow: -4px 0 14px rgba(0,0,0,0.25) !important; }";
+    document.head.appendChild(styleTag);
+  }
+
   function createButton() {
     if (button) return;
+    injectBaseStyles();
 
     button = document.createElement("div");
     button.id = "prengine-widget-btn";
     button.setAttribute("role", "button");
     button.setAttribute("tabindex", "0");
     button.setAttribute("aria-label", "Report a bug");
-    Object.assign(button.style, {
-      position: "fixed",
-      bottom: "20px",
-      right: "20px",
-      width: BUTTON_SIZE + "px",
-      height: BUTTON_SIZE + "px",
-      borderRadius: "50%",
-      backgroundColor: "#ea580c",
-      color: "#fff",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      cursor: "pointer",
-      boxShadow: "0 4px 12px rgba(0,0,0,0.25)",
-      zIndex: "2147483646",
-      transition: "transform 0.15s ease, box-shadow 0.15s ease",
-      border: "none",
-      outline: "none",
-    });
 
-    // Rocket SVG icon
-    button.innerHTML =
-      '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
-      '<path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/>' +
-      '<path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/>' +
-      '<path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/>' +
-      '<path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>';
+    if (widgetStyle === "bar") {
+      // ── Slim vertical bar ──────────────────────────────────────────────
+      button.classList.add("bar-style");
+      Object.assign(button.style, {
+        position: "fixed",
+        top: "50%",
+        right: "0",
+        transform: "translateY(-50%)",
+        width: "8px",
+        height: "64px",
+        borderRadius: "4px 0 0 4px",
+        backgroundColor: "#ea580c",
+        cursor: "pointer",
+        zIndex: "2147483646",
+        transition: "width 0.15s ease, box-shadow 0.15s ease",
+        border: "none",
+        outline: "none",
+        overflow: "visible",
+      });
 
-    // Dismiss X button (visible on hover)
-    dismissBtn = document.createElement("div");
-    dismissBtn.setAttribute("role", "button");
-    dismissBtn.setAttribute("aria-label", "Hide widget");
-    Object.assign(dismissBtn.style, {
-      position: "absolute",
-      top: "-6px",
-      right: "-6px",
-      width: "18px",
-      height: "18px",
-      borderRadius: "50%",
-      backgroundColor: "#666",
-      color: "#fff",
-      fontSize: "12px",
-      lineHeight: "18px",
-      textAlign: "center",
-      cursor: "pointer",
-      opacity: "0",
-      transition: "opacity 0.15s ease",
-      zIndex: "2147483647",
-    });
-    dismissBtn.textContent = "\u00d7";
-    dismissBtn.addEventListener("click", function (e) {
-      e.stopPropagation();
-      button.remove();
-      button = null;
-    });
-    button.appendChild(dismissBtn);
+      // Tooltip label that appears on hover
+      var tooltip = document.createElement("div");
+      tooltip.id = "prengine-bar-tooltip";
+      Object.assign(tooltip.style, {
+        position: "absolute",
+        top: "50%",
+        right: "12px",
+        transform: "translateY(-50%)",
+        backgroundColor: "#ea580c",
+        color: "#fff",
+        fontSize: "11px",
+        fontWeight: "600",
+        fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif",
+        whiteSpace: "nowrap",
+        padding: "4px 8px",
+        borderRadius: "4px",
+        pointerEvents: "none",
+        opacity: "0",
+        transition: "opacity 0.15s ease",
+        boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
+      });
+      tooltip.textContent = "Report a bug";
+      button.appendChild(tooltip);
 
-    button.addEventListener("mouseenter", function () {
-      button.style.transform = "scale(1.1)";
-      button.style.boxShadow = "0 6px 16px rgba(0,0,0,0.3)";
-      if (dismissBtn) dismissBtn.style.opacity = "1";
-    });
-    button.addEventListener("mouseleave", function () {
-      button.style.transform = "scale(1)";
-      button.style.boxShadow = "0 4px 12px rgba(0,0,0,0.25)";
-      if (dismissBtn) dismissBtn.style.opacity = "0";
-    });
+      button.addEventListener("mouseenter", function () {
+        button.style.width = "14px";
+        button.style.boxShadow = "-4px 0 14px rgba(0,0,0,0.25)";
+        tooltip.style.opacity = "1";
+      });
+      button.addEventListener("mouseleave", function () {
+        button.style.width = "8px";
+        button.style.boxShadow = "none";
+        tooltip.style.opacity = "0";
+      });
+
+      // Dismiss: right-click or long-press (don't clutter the tiny bar with an ×)
+      button.addEventListener("contextmenu", function (e) {
+        e.preventDefault();
+        button.remove();
+        button = null;
+      });
+
+    } else {
+      // ── Classic circle ─────────────────────────────────────────────────
+      Object.assign(button.style, {
+        position: "fixed",
+        bottom: "20px",
+        right: "20px",
+        width: BUTTON_SIZE + "px",
+        height: BUTTON_SIZE + "px",
+        borderRadius: "50%",
+        backgroundColor: "#ea580c",
+        color: "#fff",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        cursor: "pointer",
+        boxShadow: "0 4px 12px rgba(0,0,0,0.25)",
+        zIndex: "2147483646",
+        transition: "transform 0.15s ease, box-shadow 0.15s ease",
+        border: "none",
+        outline: "none",
+      });
+
+      // Rocket SVG icon
+      button.innerHTML =
+        '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+        '<path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/>' +
+        '<path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/>' +
+        '<path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/>' +
+        '<path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/></svg>';
+
+      // Dismiss × button (visible on hover)
+      dismissBtn = document.createElement("div");
+      dismissBtn.setAttribute("role", "button");
+      dismissBtn.setAttribute("aria-label", "Hide widget");
+      Object.assign(dismissBtn.style, {
+        position: "absolute",
+        top: "-6px",
+        right: "-6px",
+        width: "18px",
+        height: "18px",
+        borderRadius: "50%",
+        backgroundColor: "#666",
+        color: "#fff",
+        fontSize: "12px",
+        lineHeight: "18px",
+        textAlign: "center",
+        cursor: "pointer",
+        opacity: "0",
+        transition: "opacity 0.15s ease",
+        zIndex: "2147483647",
+      });
+      dismissBtn.textContent = "\u00d7";
+      dismissBtn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        button.remove();
+        button = null;
+      });
+      button.appendChild(dismissBtn);
+
+      button.addEventListener("mouseenter", function () {
+        button.style.transform = "scale(1.1)";
+        button.style.boxShadow = "0 6px 16px rgba(0,0,0,0.3)";
+        if (dismissBtn) dismissBtn.style.opacity = "1";
+      });
+      button.addEventListener("mouseleave", function () {
+        button.style.transform = "scale(1)";
+        button.style.boxShadow = "0 4px 12px rgba(0,0,0,0.25)";
+        if (dismissBtn) dismissBtn.style.opacity = "0";
+      });
+    }
+
     button.addEventListener("click", openModal);
     button.addEventListener("keydown", function (e) {
       if (e.key === "Enter" || e.key === " ") {
@@ -367,7 +449,7 @@
           // Recording ended — show modal again for upload progress
           hideStopPill();
           if (overlay) overlay.style.display = "flex";
-          if (button) button.style.display = "flex";
+          if (button) button.style.display = widgetStyle === "bar" ? "block" : "flex";
         }
       }
     }
