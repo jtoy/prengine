@@ -8,8 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { JobStatusBadge } from "./job-status-badge"
 import { FollowupForm } from "./followup-form"
 import { useJobPolling } from "@/hooks/use-job-events"
-import { fetchJob, fetchJobRuns, closePRs, mergePRs, updateJob } from "@/lib/api-client"
-import type { Job, JobRun } from "@/lib/db-types"
+import { fetchJob, fetchJobRuns, fetchLogs, closePRs, mergePRs, updateJob } from "@/lib/api-client"
+import type { Job, JobRun, JobLog } from "@/lib/db-types"
 import { SessionTranscript } from "./session-transcript"
 import {
   Dialog,
@@ -39,6 +39,7 @@ import {
 export function JobDetail({ jobId }: { jobId: number }) {
   const [job, setJob] = useState<Job | null>(null)
   const [runs, setRuns] = useState<JobRun[]>([])
+  const [logs, setLogs] = useState<JobLog[]>([])
   const [loading, setLoading] = useState(true)
   const [closing, setClosing] = useState(false)
   const [showCloseDialog, setShowCloseDialog] = useState(false)
@@ -50,12 +51,14 @@ export function JobDetail({ jobId }: { jobId: number }) {
 
   const loadData = async () => {
     try {
-      const [jobData, runsData] = await Promise.all([
+      const [jobData, runsData, logsData] = await Promise.all([
         fetchJob(jobId),
         fetchJobRuns(jobId),
+        fetchLogs({ job_id: jobId, limit: 500 }).catch(() => ({ logs: [], has_more: false })),
       ])
       setJob(jobData)
       setRuns(runsData)
+      setLogs(logsData.logs)
     } catch (err) {
       console.error("Failed to load job:", err)
     } finally {
@@ -90,6 +93,56 @@ export function JobDetail({ jobId }: { jobId: number }) {
     } finally {
       setSavingNote(false)
     }
+  }
+
+  function formatDuration(ms: number): string {
+    if (ms < 1000) return "< 1s"
+    const s = Math.floor(ms / 1000)
+    if (s < 60) return `${s}s`
+    const m = Math.floor(s / 60)
+    const rem = s % 60
+    if (m < 60) return rem > 0 ? `${m}m ${rem}s` : `${m}m`
+    const h = Math.floor(m / 60)
+    const remM = m % 60
+    return remM > 0 ? `${h}h ${remM}m` : `${h}h`
+  }
+
+  function parseStepTimings(runLogs: JobLog[], run: JobRun) {
+    const runStart = new Date(run.created_at).getTime()
+    const runEnd = run.finished_at
+      ? new Date(run.finished_at).getTime() + 30_000
+      : Date.now()
+
+    const stepLogs = runLogs
+      .filter(l => {
+        const t = new Date(l.created_at).getTime()
+        return t >= runStart - 5_000 && t <= runEnd && /^Step \d+:/.test(l.message)
+      })
+      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+
+    if (stepLogs.length === 0) return []
+
+    const stepMap = new Map<number, { firstTs: number; lastTs: number; label: string }>()
+    for (const log of stepLogs) {
+      const match = log.message.match(/^Step (\d+): (.+)/)
+      if (!match) continue
+      const n = parseInt(match[1])
+      const ts = new Date(log.created_at).getTime()
+      if (!stepMap.has(n)) {
+        stepMap.set(n, { firstTs: ts, lastTs: ts, label: match[2] })
+      } else {
+        stepMap.get(n)!.lastTs = ts
+      }
+    }
+
+    const sorted = [...stepMap.entries()].sort(([a], [b]) => a - b)
+
+    return sorted.map(([n, data], i) => {
+      const nextData = sorted[i + 1]?.[1]
+      const endTs = nextData ? nextData.firstTs : data.lastTs
+      const label = data.label.length > 60 ? data.label.slice(0, 60) + "…" : data.label
+      return { num: n, label, durationMs: Math.max(0, endTs - data.firstTs) }
+    })
   }
 
   if (loading) {
@@ -325,7 +378,12 @@ export function JobDetail({ jobId }: { jobId: number }) {
           {runs.length === 0 ? (
             <p className="text-sm text-muted-foreground">No runs yet</p>
           ) : (
-            runs.map((run) => (
+            runs.map((run) => {
+              const stepTimings = parseStepTimings(logs, run)
+              const totalMs = run.finished_at
+                ? new Date(run.finished_at).getTime() - new Date(run.created_at).getTime()
+                : null
+              return (
               <Card key={run.id}>
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
@@ -373,6 +431,43 @@ export function JobDetail({ jobId }: { jobId: number }) {
                     </details>
                   )}
 
+                  {stepTimings.length > 0 && (
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground mb-1.5 flex items-center gap-1">
+                        <Clock className="w-3 h-3" /> Step Timings
+                      </p>
+                      <div className="rounded border border-border overflow-hidden text-xs">
+                        {stepTimings.map((step) => (
+                          <div
+                            key={step.num}
+                            className="flex items-center gap-2 px-2 py-1 odd:bg-muted/40"
+                          >
+                            <span className="w-4 text-muted-foreground shrink-0 text-center">{step.num}</span>
+                            <span className="flex-1 truncate text-foreground">{step.label}</span>
+                            <span className={`font-mono shrink-0 tabular-nums ${
+                              step.durationMs > 120_000
+                                ? "text-red-600 font-semibold"
+                                : step.durationMs > 30_000
+                                ? "text-yellow-600"
+                                : "text-muted-foreground"
+                            }`}>
+                              {formatDuration(step.durationMs)}
+                            </span>
+                          </div>
+                        ))}
+                        {totalMs !== null && (
+                          <div className="flex items-center gap-2 px-2 py-1 border-t border-border bg-muted/60">
+                            <span className="w-4 shrink-0" />
+                            <span className="flex-1 text-muted-foreground">Total</span>
+                            <span className="font-mono shrink-0 tabular-nums font-medium text-foreground">
+                              {formatDuration(totalMs)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   <div className="flex items-center gap-4 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
                       <Clock className="w-3 h-3" />
@@ -397,7 +492,8 @@ export function JobDetail({ jobId }: { jobId: number }) {
                   </div>
                 </CardContent>
               </Card>
-            ))
+              )
+            })
           )}
         </TabsContent>
 
