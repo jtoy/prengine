@@ -12,17 +12,6 @@ const nextConfig = {
   async headers() {
     return [
       {
-        // widget.js is embedded on external sites — never cache it so deploys
-        // take effect immediately without users needing a cache-busting URL.
-        source: "/widget.js",
-        headers: [
-          {
-            key: "Cache-Control",
-            value: "no-cache, no-store, must-revalidate",
-          },
-        ],
-      },
-      {
         source: "/embed/:path*",
         headers: [
           {

@@ -19,6 +19,16 @@ module RedisQueue
     end
   end
 
+  # Close and remove the current thread's Redis connection (call in thread ensure block)
+  def self.close_thread_connection
+    thread_id = Thread.current.object_id
+    @mutex.synchronize do
+      @connections ||= {}
+      conn = @connections.delete(thread_id)
+      conn&.quit rescue nil
+    end
+  end
+
   # Block and pop from the job queue (main thread only)
   def self.pop_job(timeout: 0)
     _key, raw = queue_connection.brpop(Config::QUEUE_KEY, timeout: timeout)

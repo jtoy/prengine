@@ -53,6 +53,7 @@ loop do
           puts "[Worker] Failed to re-queue job ##{jid}: #{req_err.message}"
         end
       ensure
+        RedisQueue.close_thread_connection
         active.synchronize { active_jobs.delete(jid) }
         slots << true
         puts "[Worker] Slot released — #{slots.size}/#{MAX} slots free"

@@ -1,12 +1,15 @@
 import Redis from 'ioredis'
 
-let redis: Redis | null = null
+declare global {
+  // eslint-disable-next-line no-var
+  var _redisClient: Redis | undefined
+}
 
 export function getRedis(): Redis {
-  if (!redis) {
-    redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379')
+  if (!global._redisClient) {
+    global._redisClient = new Redis(process.env.REDIS_URL || 'redis://localhost:6379')
   }
-  return redis
+  return global._redisClient
 }
 
 export async function pushJob(payload: {
