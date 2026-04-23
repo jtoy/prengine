@@ -247,4 +247,11 @@ class JobProcessorTest < Minitest::Test
     assert_includes result, "Summary"
     refute_includes result, "QA Checklist"
   end
+
+  def test_generate_pr_body_includes_prengine_link
+    LLMClient.expects(:generate).returns("## Summary\nFixed the bug")
+    result = @processor.send(:generate_pr_body, "diff", "prompt", "passed", 1)
+    assert_includes result, "https://prengine.distark.com"
+    assert_includes result, "Powered by [prengine]"
+  end
 end
