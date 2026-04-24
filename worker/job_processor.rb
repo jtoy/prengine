@@ -517,6 +517,9 @@ class JobProcessor
 
     # Append original bug report for reviewer context
     body += "\n\n<details>\n<summary>Original Bug Report</summary>\n\n#{prompt}\n\n</details>"
+
+    # Link back to prengine job
+    body += "\n\n---\n[View on prengine](https://prengine.distark.com/jobs/#{job_id})"
     body
   end
 
