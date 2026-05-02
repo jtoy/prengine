@@ -110,4 +110,11 @@ module DB
     return {} unless result.ntuples > 0
     JSON.parse(result[0]["env_vars"] || "{}") rescue {}
   end
+
+  def self.get_repo_context(repo_name)
+    result = query("SELECT context FROM repositories WHERE name = $1 AND enabled = true", [repo_name])
+    return nil unless result.ntuples > 0
+    ctx = result[0]["context"].to_s.strip
+    ctx.empty? ? nil : ctx
+  end
 end

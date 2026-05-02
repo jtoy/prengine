@@ -4,7 +4,7 @@ import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { JobStatusBadge } from "./job-status-badge"
 import type { Job } from "@/lib/db-types"
-import { Clock, Paperclip } from "lucide-react"
+import { Clock, Paperclip, Bot } from "lucide-react"
 
 export function JobCard({ job }: { job: Job }) {
   const timeAgo = getTimeAgo(new Date(job.created_at))
@@ -14,7 +14,12 @@ export function JobCard({ job }: { job: Job }) {
       <Card className="hover:shadow-md transition-shadow cursor-pointer">
         <CardHeader className="pb-2">
           <div className="flex items-start justify-between gap-2">
-            <CardTitle className="text-base line-clamp-2">{job.title}</CardTitle>
+            <div className="flex items-center gap-2 min-w-0">
+              {job.source === "error_tracker" && (
+                <Bot className="w-4 h-4 text-orange-600 shrink-0" aria-label="Auto-created from error" />
+              )}
+              <CardTitle className="text-base line-clamp-2">{job.title}</CardTitle>
+            </div>
             <JobStatusBadge status={job.status} />
           </div>
         </CardHeader>
@@ -24,6 +29,9 @@ export function JobCard({ job }: { job: Job }) {
           )}
           <p className="text-xs text-muted-foreground mb-3">
             {job.mode === "review" ? "Review" : "Build"} mode
+            {job.source === "error_tracker" && (
+              <span className="ml-2 text-orange-600">• auto-fix</span>
+            )}
           </p>
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
             {job.created_by_name ? (

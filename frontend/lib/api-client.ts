@@ -1,4 +1,4 @@
-import type { Job, JobRun, JobLog, Repository } from './db-types'
+import type { Job, JobRun, JobLog, Repository, ClientError } from './db-types'
 import { authenticatedFetch } from './utils'
 
 const API_BASE = '/api'
@@ -146,6 +146,27 @@ export async function deleteRepo(id: number): Promise<void> {
     const err = await response.json().catch(() => ({}))
     throw new Error(err.error || 'Failed to delete repository')
   }
+}
+
+export async function fetchClientErrors(params?: {
+  repo?: string
+  source?: string
+  since?: string
+  limit?: number
+  offset?: number
+}): Promise<{ errors: ClientError[]; total: number }> {
+  const searchParams = new URLSearchParams()
+  if (params?.repo) searchParams.set('repo', params.repo)
+  if (params?.source) searchParams.set('source', params.source)
+  if (params?.since) searchParams.set('since', params.since)
+  if (params?.limit) searchParams.set('limit', String(params.limit))
+  if (params?.offset) searchParams.set('offset', String(params.offset))
+
+  const qs = searchParams.toString()
+  const url = `${API_BASE}/admin/client-errors${qs ? `?${qs}` : ''}`
+  const response = await authenticatedFetch(url)
+  if (!response.ok) throw new Error('Failed to fetch client errors')
+  return response.json()
 }
 
 export async function uploadFiles(files: File[]): Promise<{ url: string; filename: string; mime_type: string; size: number }[]> {

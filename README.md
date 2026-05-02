@@ -199,6 +199,68 @@ See [README_BRANCH_SELECTION.md](./README_BRANCH_SELECTION.md) for complete docu
 
 ---
 
+## Client Error Tracking
+
+Automatically capture JS errors and backend exceptions from your apps. New unique errors can auto-create prengine fix jobs.
+
+### How It Works
+
+1. **Enable** error tracking on a repo via Admin → Repos (toggle "Enable error tracking")
+2. **Add the JS snippet** to your app's HTML (shown in the repos table when tracking is on):
+
+```html
+<script src="https://prengine.distark.com/client-errors.js" data-p="<project_id>" async></script>
+```
+
+The `project_id` is the MD5 hash of the repo name (e.g. `jtoy/cartoon_maker` → `c78f192337dd0ed0b4bb686c51c18a4f`). It's shown in the admin repos UI with a copy button.
+
+3. **Optionally enable auto-fix** — toggle "Auto-create fix jobs" on the repo. New error fingerprints will automatically create prengine jobs and push them to the worker queue.
+
+### Backend Error Reporting
+
+For Ruby/Python/Node backends, POST errors directly:
+
+```bash
+curl -X POST https://prengine.distark.com/api/client-errors \
+  -H "Content-Type: application/json" \
+  -d '{"projectId":"<md5>","type":"backend_error","message":"Something broke","stack":"...","source":"backend"}'
+```
+
+See `orchestrator/config/initializers/prengine_errors.rb` for a full Ruby integration example.
+
+### Admin UI
+
+- **Admin → Errors**: Browse all captured errors with filters (repo, source, date)
+- **Admin → Repos**: Toggle tracking/auto-fix per repo, copy JS snippet
+
+### Maintenance — Cleanup Cron
+
+Old errors (>90 days since last seen) are purged daily via orchestrator's `whenever` schedule:
+
+```ruby
+# orchestrator/config/schedule.rb
+every 1.day, at: '3:00 am' do
+  command "curl -s -X POST https://prengine.distark.com/api/client-errors/cleanup"
+end
+```
+
+Or call manually:
+
+```bash
+curl -s -X POST https://prengine.distark.com/api/client-errors/cleanup
+```
+
+Existing `REDIS_URL` and `DATABASE_URL` are reused for rate limiting and storage.
+
+### Currently Integrated Apps
+
+| App | Repo | Project ID | Frontend | Backend |
+|-----|------|-----------|----------|---------|
+| Cartoon Maker | `jtoy/cartoon_maker` | `c78f192337dd0ed0b4bb686c51c18a4f` | ✅ | — |
+| Orchestrator | `jtoy/distark` | `8cd0eaee3cc2f593962d636362aa0c64` | ✅ | ✅ |
+
+---
+
 ## TODO
 
 * support for our context to be loaded

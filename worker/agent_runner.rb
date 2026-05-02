@@ -10,11 +10,12 @@ class AgentRunner
   # repo_dirs: optional array of repo short names (for multi-repo prompt)
   # repo_names: optional array of full repo names (owner/name)
   # session_path: optional path to JSONL session file for pi persistence
-  def initialize(work_path, repo_dirs: nil, repo_names: nil, session_path: nil)
+  def initialize(work_path, repo_dirs: nil, repo_names: nil, session_path: nil, repo_contexts: nil)
     @work_path = work_path
     @repo_dirs = repo_dirs
     @repo_names = repo_names
     @session_path = session_path
+    @repo_contexts = repo_contexts
   end
 
   # Run the coding agent with the given prompt (non-interactive)
@@ -71,6 +72,13 @@ class AgentRunner
       ""
     end
 
+    context_hint = if @repo_contexts&.any?
+      sections = @repo_contexts.map { |name, ctx| ctx }.join("\n\n")
+      "#{sections}\n\n"
+    else
+      ""
+    end
+
     db_hint = if distark_repo?
       <<~HINT
         If you need Distark application data while working, the `LIVE_TEST_DB` environment variable is available
@@ -85,7 +93,7 @@ class AgentRunner
 
       #{user_prompt}
 
-      #{workspace_hint}#{db_hint}Fix the bug by modifying the necessary files. Make minimal, focused changes.
+      #{workspace_hint}#{context_hint}#{db_hint}Fix the bug by modifying the necessary files. Make minimal, focused changes.
       If applicable, add unit and e2e tests red/green TDD style.
       Run any existing tests to verify your fix works.
     PROMPT

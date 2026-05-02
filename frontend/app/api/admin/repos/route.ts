@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { query } from "@/lib/db"
 import { getUserFromRequest } from "@/lib/auth-server"
+import { repoNameToProjectId } from "@/lib/client-errors"
 
 async function requireAdmin(request: NextRequest) {
   const user = await getUserFromRequest(request)
@@ -20,7 +21,12 @@ export async function GET(request: NextRequest) {
     if ("error" in auth) return auth.error
 
     const result = await query("SELECT * FROM repositories ORDER BY name ASC")
-    return NextResponse.json(result.rows)
+    // Attach computed project_id (md5 of name) to each row
+    const rows = result.rows.map((r: any) => ({
+      ...r,
+      project_id: repoNameToProjectId(r.name),
+    }))
+    return NextResponse.json(rows)
   } catch (error) {
     console.error("Failed to fetch repos:", error)
     return NextResponse.json({ error: "Failed to fetch repositories" }, { status: 500 })
@@ -78,7 +84,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: "ID is required" }, { status: 400 })
     }
 
-    const allowedFields = ["name", "base_branch", "description", "enabled", "app_dir", "env_vars", "context"]
+    const allowedFields = ["name", "base_branch", "description", "enabled", "app_dir", "env_vars", "context", "error_tracking_enabled", "error_autofix_enabled"]
     const setClauses: string[] = []
     const params: any[] = []
     let paramIndex = 1

@@ -7,11 +7,14 @@ export interface User {
   updated_at: string
 }
 
+export type JobSource = 'user' | 'error_tracker'
+
 export interface Job {
   id: number
   title: string
   summary: string | null
   mode: JobMode
+  source: JobSource
   status: string
   created_by: number | null
   created_by_email: string | null
@@ -81,6 +84,25 @@ export interface Repository {
   app_dir: string
   env_vars: Record<string, string>
   context: string
+  error_tracking_enabled: boolean
+  error_autofix_enabled: boolean
+  project_id?: string // md5 of name, computed by admin API
   created_at: string
   updated_at: string
+}
+
+export interface ClientError {
+  id: number
+  fingerprint: string
+  repository_id: number
+  repository_name: string
+  type: string
+  message: string
+  stack: string | null
+  metadata: Record<string, any> | null
+  error_source: string
+  count: number
+  job_id: number | null
+  first_seen_at: string
+  last_seen_at: string
 }

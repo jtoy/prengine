@@ -12,13 +12,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
-import { Bug, LayoutDashboard, List, Plus, Menu, LogOut, User, FileText, Database } from "lucide-react"
+import { Bug, LayoutDashboard, List, Plus, Menu, LogOut, User, FileText, Database, AlertTriangle } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 
 const navigationItems = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard, adminOnly: false },
   { name: "Jobs", href: "/jobs", icon: List, adminOnly: false },
   { name: "Repos", href: "/admin/repos", icon: Database, adminOnly: true },
+  { name: "Errors", href: "/admin/errors", icon: AlertTriangle, adminOnly: true },
   { name: "Logs", href: "/admin/logs", icon: FileText, adminOnly: false },
 ]
 

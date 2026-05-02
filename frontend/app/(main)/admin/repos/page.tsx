@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/dialog"
 import { fetchAdminRepos, createRepo, updateRepo, deleteRepo } from "@/lib/api-client"
 import type { Repository } from "@/lib/db-types"
-import { Plus, Pencil, Trash2, Database, X } from "lucide-react"
+import { Plus, Pencil, Trash2, Database, X, Copy, Check, Bug } from "lucide-react"
 
 interface EnvVar {
   key: string
@@ -34,6 +34,8 @@ interface RepoFormData {
   app_dir: string
   env_vars: EnvVar[]
   context: string
+  error_tracking_enabled: boolean
+  error_autofix_enabled: boolean
 }
 
 const emptyForm: RepoFormData = {
@@ -44,6 +46,8 @@ const emptyForm: RepoFormData = {
   app_dir: "",
   env_vars: [],
   context: "",
+  error_tracking_enabled: false,
+  error_autofix_enabled: false,
 }
 
 function repoToForm(repo: Repository): RepoFormData {
@@ -55,6 +59,8 @@ function repoToForm(repo: Repository): RepoFormData {
     app_dir: repo.app_dir,
     env_vars: Object.entries(repo.env_vars || {}).map(([key, value]) => ({ key, value })),
     context: repo.context || "",
+    error_tracking_enabled: repo.error_tracking_enabled,
+    error_autofix_enabled: repo.error_autofix_enabled,
   }
 }
 
@@ -71,6 +77,8 @@ function formToPayload(form: RepoFormData) {
     app_dir: form.app_dir,
     env_vars,
     context: form.context,
+    error_tracking_enabled: form.error_tracking_enabled,
+    error_autofix_enabled: form.error_autofix_enabled,
   }
 }
 
@@ -84,6 +92,7 @@ export default function AdminReposPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
   const [deleteConfirm, setDeleteConfirm] = useState<number | null>(null)
+  const [copiedSnippet, setCopiedSnippet] = useState<number | null>(null)
 
   const loadRepos = useCallback(async () => {
     try {
@@ -204,49 +213,99 @@ export default function AdminReposPage() {
                   <th className="text-left p-3 font-medium">App Dir</th>
                   <th className="text-left p-3 font-medium">Context</th>
                   <th className="text-left p-3 font-medium">Enabled</th>
+                  <th className="text-left p-3 font-medium">Error Tracking</th>
                   <th className="text-left p-3 font-medium">Env Vars</th>
                   <th className="text-right p-3 font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {repos.map((repo) => (
-                  <tr key={repo.id} className="border-b last:border-b-0 hover:bg-muted/30">
-                    <td className="p-3 font-medium">{repo.name}</td>
-                    <td className="p-3 text-muted-foreground">{repo.base_branch}</td>
-                    <td className="p-3 text-muted-foreground">{repo.app_dir || "—"}</td>
-                    <td className="p-3">
-                      <Badge variant={repo.context?.trim() ? "default" : "secondary"} className="text-xs">
-                        {repo.context?.trim() ? 
-                          (repo.context.startsWith('http') ? "URL" : "Text") : 
-                          "None"
-                        }
-                      </Badge>
-                    </td>
-                    <td className="p-3">
-                      <Badge variant={repo.enabled ? "default" : "secondary"}>
-                        {repo.enabled ? "Yes" : "No"}
-                      </Badge>
-                    </td>
-                    <td className="p-3 text-muted-foreground">
-                      {Object.keys(repo.env_vars || {}).length} keys
-                    </td>
-                    <td className="p-3 text-right">
-                      <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="sm" onClick={() => openEdit(repo)}>
-                          <Pencil className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-red-600 hover:text-red-700"
-                          onClick={() => setDeleteConfirm(repo.id)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {repos.map((repo) => {
+                  const snippet = `<script src="https://prengine.distark.com/client-errors.js" data-p="${repo.project_id || ""}" async></script>`
+                  return (
+                    <>
+                      <tr key={repo.id} className="border-b last:border-b-0 hover:bg-muted/30">
+                        <td className="p-3 font-medium">{repo.name}</td>
+                        <td className="p-3 text-muted-foreground">{repo.base_branch}</td>
+                        <td className="p-3 text-muted-foreground">{repo.app_dir || "—"}</td>
+                        <td className="p-3">
+                          <Badge variant={repo.context?.trim() ? "default" : "secondary"} className="text-xs">
+                            {repo.context?.trim() ? 
+                              (repo.context.startsWith('http') ? "URL" : "Text") : 
+                              "None"
+                            }
+                          </Badge>
+                        </td>
+                        <td className="p-3">
+                          <Badge variant={repo.enabled ? "default" : "secondary"}>
+                            {repo.enabled ? "Yes" : "No"}
+                          </Badge>
+                        </td>
+                        <td className="p-3">
+                          {repo.error_tracking_enabled ? (
+                            <div className="flex items-center gap-1.5">
+                              <Bug className="w-3.5 h-3.5 text-orange-600" />
+                              <span className="text-xs">
+                                {repo.error_autofix_enabled ? "Track + Auto-fix" : "Track only"}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">Off</span>
+                          )}
+                        </td>
+                        <td className="p-3 text-muted-foreground">
+                          {Object.keys(repo.env_vars || {}).length} keys
+                        </td>
+                        <td className="p-3 text-right">
+                          <div className="flex justify-end gap-1">
+                            {repo.error_tracking_enabled && repo.project_id && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                title="Copy JS snippet"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(snippet)
+                                  setCopiedSnippet(repo.id)
+                                  setTimeout(() => setCopiedSnippet(null), 2000)
+                                }}
+                              >
+                                {copiedSnippet === repo.id ? (
+                                  <Check className="w-4 h-4 text-green-600" />
+                                ) : (
+                                  <Copy className="w-4 h-4" />
+                                )}
+                              </Button>
+                            )}
+                            <Button variant="ghost" size="sm" onClick={() => openEdit(repo)}>
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-red-600 hover:text-red-700"
+                              onClick={() => setDeleteConfirm(repo.id)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                      {repo.error_tracking_enabled && repo.project_id && (
+                        <tr key={`${repo.id}-snippet`} className="border-b bg-muted/20">
+                          <td colSpan={8} className="px-3 py-2">
+                            <div className="flex items-center gap-2">
+                              <code className="text-[11px] bg-muted px-2 py-1 rounded font-mono flex-1 truncate">
+                                {snippet}
+                              </code>
+                              <code className="text-[11px] text-muted-foreground">
+                                Project ID: {repo.project_id}
+                              </code>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </>
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -330,6 +389,43 @@ export default function AdminReposPage() {
                   className="h-4 w-4 rounded border-gray-300"
                 />
                 <Label htmlFor="enabled">Enabled</Label>
+              </div>
+
+              <div className="border-t pt-3 mt-1">
+                <p className="text-sm font-medium mb-2">Error Tracking</p>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="error_tracking_enabled"
+                      checked={form.error_tracking_enabled}
+                      onChange={(e) => setForm({
+                        ...form,
+                        error_tracking_enabled: e.target.checked,
+                        error_autofix_enabled: e.target.checked ? form.error_autofix_enabled : false,
+                      })}
+                      className="h-4 w-4 rounded border-gray-300"
+                    />
+                    <Label htmlFor="error_tracking_enabled">
+                      Enable error tracking
+                      <span className="text-xs text-muted-foreground ml-2">Accept error reports for this repo</span>
+                    </Label>
+                  </div>
+                  <div className="flex items-center gap-2 ml-6">
+                    <input
+                      type="checkbox"
+                      id="error_autofix_enabled"
+                      checked={form.error_autofix_enabled}
+                      onChange={(e) => setForm({ ...form, error_autofix_enabled: e.target.checked })}
+                      disabled={!form.error_tracking_enabled}
+                      className="h-4 w-4 rounded border-gray-300 disabled:opacity-40"
+                    />
+                    <Label htmlFor="error_autofix_enabled" className={!form.error_tracking_enabled ? "opacity-40" : ""}>
+                      Auto-create fix jobs
+                      <span className="text-xs text-muted-foreground ml-2">Automatically create PRs for new errors</span>
+                    </Label>
+                  </div>
+                </div>
               </div>
 
               <div className="grid gap-2">

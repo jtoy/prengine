@@ -8,6 +8,7 @@ describe('db-types', () => {
       title: 'Test bug',
       summary: 'Something broke',
       mode: 'build',
+      source: 'user',
       status: 'pending',
       created_by: 1,
       created_by_email: 'user@test.com',
